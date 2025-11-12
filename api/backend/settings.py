@@ -18,12 +18,14 @@ INSTALLED_APPS = [
     # third party
     "rest_framework",
     "drf_yasg",
+    'corsheaders',
 
     # local
     "emails",
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', 
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -71,3 +73,15 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Allow CORS from Codespaces and localhost
+CORS_ALLOW_ALL_ORIGINS = True  # Safe for development
+CORS_ALLOW_CREDENTIALS = True
+
+# --- CSRF trusted origins for GitHub Codespaces ---
+CSRF_TRUSTED_ORIGINS = [
+    "https://musical-parakeet-5pwjrqpxj49cpgj9-8000.app.github.dev",
+    "https://*.app.github.dev",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
