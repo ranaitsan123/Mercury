@@ -1,8 +1,0 @@
-Django>=4.2
-djangorestframework
-drf-yasg
-python-dotenv
-requests
-psycopg2-binary
-Faker
-django-cors-headers

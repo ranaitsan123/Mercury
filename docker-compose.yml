@@ -40,38 +40,70 @@
 # ================================================================================================
 #                          THE FULL TEAM PROJECT CODE IS ABOVE
 # ================================================================================================
-version: '3.8'
+# version: '3.8'
+# services:
+#   api:
+#     build: ./api
+#     ports:
+#       - "8000:8000"
+#     env_file:
+#       - ./api/.env
+#     volumes:
+#       - ./api:/app
+#     depends_on:
+#       - db
+#       - mailserver
+#       - aiscanner
+
+#   db:
+#     image: postgres:15
+#     restart: always
+#     env_file:
+#       - ./api/.env
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - postgres_data:/var/lib/postgresql/data
+
+#   mailserver:
+#     image: alpine
+#     command: ["sh", "-c", "echo 'Mail server mock running' && sleep infinity"]
+
+#   aiscanner:
+#     image: alpine
+#     command: ["sh", "-c", "echo 'AI scanner mock running' && sleep infinity"]
+
+# volumes:
+#   postgres_data:
+
+version: '3.9'
+
 services:
-  api:
-    build: ./api
+  backend:
+    build: ./backend
+    container_name: backend
+    volumes:
+      - ./backend:/app
     ports:
       - "8000:8000"
     env_file:
-      - ./api/.env
-    volumes:
-      - ./api:/app
+      - .env
     depends_on:
       - db
-      - mailserver
-      - aiscanner
 
   db:
-    image: postgres:15
-    restart: always
-    env_file:
-      - ./api/.env
-    ports:
-      - "5432:5432"
+    image: postgres:16
+    container_name: db
+    environment:
+      POSTGRES_DB: mercury
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
-  mailserver:
-    image: alpine
-    command: ["sh", "-c", "echo 'Mail server mock running' && sleep infinity"]
-
-  aiscanner:
-    image: alpine
-    command: ["sh", "-c", "echo 'AI scanner mock running' && sleep infinity"]
+    ports:
+      - "5432:5432"
 
 volumes:
   postgres_data:
