@@ -318,6 +318,94 @@ When ready, attach the real ML model.
 
 ---
 
+# **🧪 Automated Tests**
+
+Mercury Backend now includes a **comprehensive test suite** to ensure both functionality and middleware intelligence are working correctly. Tests cover:
+
+### **1. Email Scanning Tests**
+
+* Validate that **AI scanner routes correctly** (`real` vs `mock`).
+* Check that scanning results include:
+
+  * `result` (`safe` / `malicious`)
+  * `confidence` score
+  * `used` service (`real` or `mock`)
+  * `trace_id`
+* Confirm fallback behavior: if the real scanner fails, mock is automatically used.
+
+### **2. Email Sending Tests**
+
+* Validate intelligent routing to **real or mock mail servers**.
+* Check that sending responses include:
+
+  * `status` (`sent_real` / `sent_mock`)
+  * `used` service
+  * `trace_id`
+* Confirm that views respect authentication and route selection.
+
+### **3. Middleware & Routing Tests**
+
+* Ensure `request.service_route` is correctly set before views.
+* Confirm security middleware enforces authentication and role restrictions.
+* Test automatic failover from real → mock services.
+
+### **4. Scan Log Tests**
+
+* Ensure logs are correctly stored and retrieved.
+* Validate log fields like `id`, `result`, `used`, and `trace_id`.
+
+---
+
+## **Running Tests**
+
+### 1. Run all tests
+
+```bash
+docker compose exec backend python manage.py test
+```
+
+### 2. Run tests for a specific app
+
+```bash
+docker compose exec backend python manage.py test scanner
+```
+
+### 3. Run tests with more verbose output
+
+```bash
+docker compose exec backend python manage.py test --verbosity=2
+```
+
+---
+
+## **Example Test Snippet**
+
+```python
+from rest_framework.test import APITestCase
+from django.urls import reverse
+
+class ScanEmailTest(APITestCase):
+    def test_scan_email_safe(self):
+        url = reverse('scanner:scan')
+        data = {"from": "user@example.com", "subject": "Hello", "body": "Test email"}
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(response.data['result'], ["safe", "malicious"])
+        self.assertIn(response.data['used'], ["real", "mock"])
+        self.assertTrue('trace_id' in response.data)
+```
+
+---
+
+### ✅ **Why These Tests Matter**
+
+1. **Safety:** Ensures that real AI services are never called unexpectedly in development.
+2. **Reliability:** Confirms automatic fallback to mock services.
+3. **Traceability:** Guarantees every response includes a `trace_id`.
+4. **Consistency:** Frontend sees the same API behavior regardless of real/mock services.
+
+---
+
 # **Getting Started**
 
 ### Docker Compose
