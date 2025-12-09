@@ -1,232 +1,324 @@
-# Mercury Backend
+# **✨ NEW README: Mercury Backend (Advanced Middleware Edition)**
 
-**Documentation Version:** 2025-12-03
-**Project:** Mercury Email Scanner Backend
-
----
-
-## Overview
-
-The Mercury Backend is a **Django 5.2-based REST API service** responsible for:
-
-* Managing users and authentication
-* Receiving emails and scanning their content
-* Storing scan logs
-* Exposing mock services for email sending and AI scanning
-
-> **Purpose:** This backend provides a **contract for frontend and other services** to interact with email scanning functionality, regardless of whether the real mail server or AI scanner exists. Mock services are used for development and testing.
+**Documentation Version:** 2025-12-10
+**Project:** Mercury Email Security Backend (Django + Intelligent Middleware)
 
 ---
 
-## Architecture & Flow
+# **Overview**
+
+Mercury Backend is a **Django 5.2-based REST API** that provides:
+
+* User authentication & roles
+* Email scanning (mock or real AI scanner)
+* Email sending (mock or real mail server)
+* Automatic service routing
+* Logging & monitoring
+* A fully dockerized microservice-style email gateway
+
+This backend now includes an **Advanced 3-Layer Middleware System** that adds intelligence, routing, tracing, and auto-fallback behavior for real vs mock services.
+
+---
+
+# **🚀 New Architecture Enhancements (2025-12)**
+
+Mercury Backend now implements:
+
+### ✅ **1. Security Gateway Middleware**
+
+Adds:
+
+* role enforcement
+* request rate limiting (basic)
+* request `trace_id`
+* security logging
+
+### ✅ **2. Intelligent Service Router Middleware**
+
+The core upgrade.
+This middleware decides **per-request** whether to use:
+
+| Service     | Mode        |
+| ----------- | ----------- |
+| Mail server | real / mock |
+| AI scanner  | real / mock |
+
+Routing is based on:
+
+* environment variable `USE_REAL_SERVICES`
+* service health status
+* automatic fallback when real service fails
+
+It attaches:
+
+```python
+request.service_route = {
+  "mailserver": "real" or "mock",
+  "scanner": "real" or "mock"
+}
+```
+
+### ✅ **3. Response Logging Middleware**
+
+Adds:
+
+* response tracing
+* service usage logging
+* transparent monitoring
+
+---
+
+# **🌐 Updated System Architecture**
 
 ```
-   +----------------+          +----------------+
-   |                |          |                |
-   |  Frontend /    |  POST    |  Backend API   |
-   |  Other Service |--------->|  (Django REST) |
-   |                |          |                |
-   +----------------+          +----------------+
-                                      |
-                                      | Calls
-                                      v
-                          +----------------------+
-                          | Email / Scan Service |
-                          |  - Mock or Real     |
-                          +----------------------+
-                                      |
-                                      v
-                               +------------+
-                               |  Database  |
-                               | (Postgres) |
-                               +------------+
+ +---------------------+
+ |      Frontend       |
+ +----------+----------+
+            |
+            v  (HTTP + JWT)
+ +-----------------------------+
+ | Mercury Backend (Django)    |
+ | - Security Gateway          |
+ | - Intelligent Router        |
+ | - Response Logger           |
+ +-------------+---------------+
+               |
+        +------+-------+
+        |              |
+        v              v
++---------------+   +----------------+
+| Real Services |   | Mock Services  |
+| (optional)    |   | (development)  |
++---------------+   +----------------+
+        |                    |
+        v                    v
+   Mail Server         Fake Mail Sender
+   AI Scanner          Randomized Scanner
 ```
 
-1. The **frontend or another service** sends email content to the backend API.
-2. The backend decides whether to use **mock services** or **real services** based on the `USE_REAL_SERVICES` environment variable.
-3. The **scan result** is stored in the database (`ScanLog`) and returned to the caller.
-4. Users can fetch **recent scan logs**, restricted by authentication.
+The backend **switches automatically** between real and mock services.
 
 ---
 
-## Users & Authentication
+# **Environment Variables**
 
-* **Custom User Model** (`users.User`) with roles:
+```
+USE_REAL_SERVICES=auto   # auto | true | false
 
-  * `admin`
-  * `user`
-* **Authentication:** JWT (JSON Web Token)
-* **Endpoints for users:**
+REAL_MAILSERVER_URL=http://mailserver:8080/send
+REAL_AISCANNER_URL=http://aiscanner:5000/scan
 
-  * `POST /auth/token/` – obtain JWT
-  * `POST /auth/token/refresh/` – refresh JWT
-  * `GET /users/me/` – get current user details
+POSTGRES_DB=backend_db
+POSTGRES_USER=django
+POSTGRES_PASSWORD=django123
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
 
-> Only authenticated users can see scan logs and send mock emails.
+DJANGO_SUPERUSER_USERNAME=admin
+DJANGO_SUPERUSER_PASSWORD=admin123
+DJANGO_SUPERUSER_EMAIL=admin@example.com
+```
+
+### ✔ `"auto"` = recommended
+
+The middleware chooses automatically based on health + availability.
 
 ---
 
-## API Endpoints & Data Contracts
+# **API Endpoints & Data Contracts**
 
-### 1. Email Scanning
+## **1. Email Scanning (Intelligent Routing)**
 
-**Endpoint:** `POST /scanner/scan/`
-**Authentication:** Required
+**POST `/scanner/scan/`**
+**Auth:** Required
 
-**Request Body:**
+### Request
 
 ```json
 {
   "from": "user@example.com",
-  "subject": "Test email",
-  "body": "This is a test email content"
+  "subject": "Test",
+  "body": "Email content"
 }
 ```
 
-**Response:**
+### Response
 
 ```json
 {
   "id": 123,
-  "result": "malicious",          // "safe" or "malicious"
-  "confidence": 0.87,             // float between 0 and 1
-  "used": "mock"                  // "mock" or "real"
+  "result": "safe",
+  "confidence": 0.87,
+  "used": "real",      // real or mock
+  "trace_id": "f9c1..."
 }
 ```
 
-**Notes:**
-
-* The backend will **automatically choose mock or real scanning**.
-* Logs are saved in `ScanLog`.
-
 ---
 
-### 2. Scan Logs
+## **2. Send Email (Intelligent Routing)**
 
-**Endpoint:** `GET /scanner/logs/`
-**Authentication:** Required
+**POST `/emails/send/`**
+**Auth:** Required
 
-**Response:**
-
-```json
-[
-  {
-    "id": 123,
-    "sender": "user@example.com",
-    "subject": "Test email",
-    "result": "malicious",
-    "confidence": 0.87,
-    "scanned_at": "2025-12-03T12:34:56Z"
-  },
-  ...
-]
-```
-
-**Notes:**
-
-* Currently **all authenticated users** can see logs.
-* In the future, logs can be **filtered per user** by sender or user email.
-
----
-
-### 3. Mock Email Sending (Development Only)
-
-**Endpoint:** `POST /emails/mock/send/`
-**Authentication:** Required
-
-**Request Body:**
+### Request
 
 ```json
 {
   "to": "recipient@example.com",
   "subject": "Hello",
-  "body": "This is a mock email"
+  "body": "Testing send"
 }
 ```
 
-**Response:**
+### Response
 
 ```json
 {
   "id": 4567,
-  "to": "recipient@example.com",
-  "subject": "Hello",
-  "status": "sent_mock"
+  "status": "sent_mock",
+  "used": "mock",
+  "trace_id": "a81b..."
 }
 ```
 
 ---
 
-### 4. Mock Email Scanning (Development Only)
+## **3. Scan Logs**
 
-**Endpoint:** `POST /emails/mock/scan/`
-**Authentication:** Required
+**GET `/scanner/logs/`**
 
-**Request Body:**
+Shows the 200 most recent scan logs.
 
-```json
-{
-  "content": "This is the content of the email"
-}
+---
+
+# **Users & Authentication**
+
+* Custom `User` model
+* Roles: `admin`, `user`
+* JWT authentication (SimpleJWT)
+
+### Auth Endpoints
+
+* `POST /auth/token/`
+* `POST /auth/token/refresh/`
+* `GET /users/me/`
+
+---
+
+# **How the Intelligent Router Works**
+
+### Step 1 — The middleware runs **before** any view
+
+It decides:
+
+```python
+"mailserver": "real" or "mock"
+"scanner": "real" or "mock"
 ```
 
-**Response:**
+### Step 2 — The view reads the route
 
-```json
-{
-  "scan_id": 7890,
-  "malicious": false,
-  "confidence": 0.42
-}
+```python
+route = request.service_route["scanner"]
 ```
 
----
+### Step 3 — The view executes the selected service
 
-## Interacting With the Backend
+```python
+if route == "real":
+    result = try_real_scan(body)
+else:
+    result = mock_service.scan_email(body)
+```
 
-1. **Authenticate** using JWT:
+### Step 4 — Response Logger adds metadata
 
-   ```bash
-   POST /auth/token/ { "username": "admin", "password": "adminpass" }
-   ```
-
-   → receive `access` token
-
-2. **Include JWT** in the `Authorization` header for all requests:
-
-   ```
-   Authorization: Bearer <access_token>
-   ```
-
-3. **Send email content for scanning:**
-
-   ```bash
-   POST /scanner/scan/
-   {
-     "from": "user@example.com",
-     "subject": "Hello",
-     "body": "This is a test email"
-   }
-   ```
-
-4. **Retrieve logs:**
-
-   ```bash
-   GET /scanner/logs/
-   ```
+Every response includes a `trace_id`.
 
 ---
 
-## Notes for Colleagues
+# **Why We Added the 3 Middleware Layers**
 
-* **Data Contracts** are clearly defined in the endpoints above — this is what the frontend and other services should expect.
-* Mock services **do not run continuously** yet; results are generated per request.
-* Environment variable `USE_REAL_SERVICES=false` ensures development uses mock services only.
-* Any changes to the mock contract (field names, types) must be updated in this documentation.
+### ✔ Fault Tolerance
+
+If real AI scanner fails → auto-switch to mock.
+
+### ✔ Safe Development
+
+Local developers always get mock services unless enabled.
+
+### ✔ Clean Separation
+
+Views no longer contain logic like:
+
+* “should I call real?”
+* “is service down?”
+* “should I fallback?”
+
+All of this is centralized.
+
+### ✔ Production Observability
+
+Every request now has:
+
+* trace ID
+* logged route choice
+* consistent metadata
 
 ---
 
-## Getting Started
+# **Benefits**
+
+### ✅ Zero-downtime fallback
+
+Real scanner can die — system keeps working.
+
+### ✅ Same API for dev & production
+
+Frontend never changes behavior.
+
+### ✅ Clean view logic
+
+Views stay “dumb”, middleware stays “smart”.
+
+### ✅ Seamless transition to real infrastructure
+
+When mail server or AI scanner are ready, just set:
+
+```
+USE_REAL_SERVICES=true
+```
+
+No code changes required.
+
+---
+
+# **Future Improvements**
+
+### 📌 1. Health Check Loop
+
+Add periodic heartbeat checks so middleware updates automatically.
+
+### 📌 2. Distributed Tracing
+
+Push trace IDs to Grafana/Jaeger.
+
+### 📌 3. Logging Dashboard
+
+Frontend page to view router activity + failovers.
+
+### 📌 4. Role-Based Access Enforcement
+
+Admin can restrict logs by user/team.
+
+### 📌 5. Real Virus Scanner Integration
+
+When ready, attach the real ML model.
+
+---
+
+# **Getting Started**
 
 ### Docker Compose
 
@@ -234,15 +326,15 @@ The Mercury Backend is a **Django 5.2-based REST API service** responsible for:
 docker-compose up --build
 ```
 
-* Backend available at `http://localhost:8000/`
-* PostgreSQL at `localhost:5432`
+* Backend → `http://localhost:8000/`
+* PostgreSQL → `localhost:5432`
 
-> Superuser created automatically: `admin / adminpass`
+Superuser created automatically using `.env`.
 
 ---
 
-## Versioning & Documentation Date
+# **Versioning & Documentation Date**
 
-* Version: 1.0
-* Documentation Date: 2025-12-03
+* Documentation Version: **1.1**
+* Updated: **2025-12-10**
 
