@@ -1,8 +1,8 @@
 import uuid
 from django.test import RequestFactory
-from backend.middleware.security_gateway import SecurityGatewayMiddleware
-from backend.middleware.intelligent_router import IntelligentServiceRouterMiddleware
-from backend.middleware.response_logger import ResponseLoggingMiddleware
+from middleware.security_gateway import SecurityGatewayMiddleware
+from middleware.intelligent_router import IntelligentServiceRouterMiddleware
+from middleware.response_logger import ResponseLoggingMiddleware
 from django.http import JsonResponse
 
 def get_response(_):

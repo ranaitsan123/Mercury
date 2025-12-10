@@ -60,9 +60,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     # 🔥 Add our advanced layers:
-    'backend.middleware.security_gateway.SecurityGatewayMiddleware',
-    'backend.middleware.intelligent_router.IntelligentServiceRouterMiddleware',
-    'backend.middleware.response_logger.ResponseLoggingMiddleware',
+    'middleware.security_gateway.SecurityGatewayMiddleware',
+    'middleware.intelligent_router.IntelligentServiceRouterMiddleware',
+    'middleware.response_logger.ResponseLoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'

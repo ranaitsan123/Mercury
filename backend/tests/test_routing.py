@@ -1,5 +1,5 @@
 from django.test import RequestFactory
-from backend.middleware.intelligent_router import IntelligentServiceRouterMiddleware
+from middleware.intelligent_router import IntelligentServiceRouterMiddleware
 import os
 
 def get_response(request):
