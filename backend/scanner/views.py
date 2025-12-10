@@ -9,7 +9,7 @@ from emails.mock_service import mock_service
 from emails.models import ScanLog
 
 # Import real-service routers
-from emails.service_selector import try_real_scan
+from scanner.service_selector import try_real_scan
 from scanner.service_selector import try_real_send_email
 
 import logging
