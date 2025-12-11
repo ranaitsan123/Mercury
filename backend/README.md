@@ -421,8 +421,186 @@ Superuser created automatically using `.env`.
 
 ---
 
+# 🔐 **NEW: API Key Authentication Layer (Mailserver → Backend)**
+
+### *Added 11th December 2025*
+
+A new security layer was added to protect the `/scanner/scan/` endpoint when it is called by the **mailserver service**. This ensures that **only authorized internal services** (like the mailserver) can trigger a scan, preventing:
+
+* unauthorized external access
+* spam/flooding attacks
+* script abuse
+* expensive AI calls from untrusted sources
+
+This is implemented using a custom middleware named:
+
+```
+ApiKeyGateMiddleware
+```
+
+---
+
+# 🧩 **Why API Key Authentication Was Added**
+
+### ✔ Mailserver is not a user → cannot use JWT
+
+The mailserver is a backend service, not a human.
+It has no:
+
+* username/password
+* login
+* refresh tokens
+
+So JWT is not appropriate.
+
+### ✔ Services need a simpler authentication method
+
+Service-to-service authentication uses **API keys**, not JWT.
+
+This is standard in:
+
+* Stripe webhooks
+* GitHub webhooks
+* Slack apps
+* Twilio
+* Google API calls
+
+Your backend follows this same architecture.
+
+### ✔ Protects high-cost AI scanning
+
+The AI scanner endpoint must never be publicly accessible.
+
+---
+
+# 🛡 **How It Works**
+
+### 1. Backend loads expected key from environment:
+
+```
+MAILSERVER_API_KEY=super_secret_key_123
+```
+
+### 2. Mailserver sends this header with each request:
+
+```
+X-API-KEY: super_secret_key_123
+```
+
+### 3. Middleware enforces the check:
+
+```python
+if request.path.startswith("/scanner/scan/"):
+    provided = request.headers.get("X-API-KEY")
+    if not provided or provided != self.valid_key:
+        return JsonResponse({"error": "invalid or missing API key"}, status=401)
+```
+
+### 4. If the key is valid → request continues
+
+### 5. If invalid/missing → request blocked (401 Unauthorized)
+
+👑 **This ensures only your Mailserver can call the AI scanner endpoint.**
+
+---
+
+# 🌐 **Environment Variable Updates**
+
+Your `.env` (located in the project root, not inside backend) now includes:
+
+```
+MAILSERVER_API_KEY=super_secret_key_123
+```
+
+⚠ **Note:**
+pytest does *not* automatically load `.env`, so tests use `monkeypatch.setenv()` to inject the key manually.
+
+---
+
+# 🧪 **New Automated Tests: API Key Authentication**
+
+A full test suite was added to validate the middleware behavior even when **mock services** are used.
+
+### ✔ Valid key → request passes
+
+### ✔ Missing key → request blocked
+
+### ✔ Wrong key → request blocked
+
+### ✔ Only `/scanner/scan/` is protected
+
+### ✔ Middleware loads the key once (cached behavior)
+
+### Example test:
+
+```python
+request = rf.post("/scanner/scan/", HTTP_X_API_KEY="secret123")
+response = middleware(request)
+assert response.status_code == 200
+```
+
+### Invalid key:
+
+```python
+request = rf.post("/scanner/scan/", HTTP_X_API_KEY="WRONG")
+response = middleware(request)
+assert response.status_code == 401
+```
+
+### Key not required for other endpoints:
+
+```python
+request = rf.get("/users/me/")
+response = middleware(request)
+assert response.status_code == 200
+```
+
+---
+
+# 🔌 **Interaction with Intelligent Service Router**
+
+The API Key middleware runs **before** the intelligent routing middleware:
+
+```
+[1] ApiKeyGateMiddleware  
+[2] SecurityGatewayMiddleware  
+[3] IntelligentServiceRouterMiddleware  
+[4] Views  
+```
+
+This ordering ensures:
+
+* No request reaches the router unless the key is valid.
+* Real/Mock service routing still works normally.
+* API key protection is independent from mock/real service selection.
+
+---
+
+# 🎁 **Benefits of Adding API Key Layer**
+
+| Benefit              | Explanation                                            |
+| -------------------- | ------------------------------------------------------ |
+| 🔐 Security          | Protects AI scanning endpoint from unauthorized access |
+| 🖧 Service identity  | Mailserver identifies itself cleanly                   |
+| 🚫 Abuse prevention  | Blocks scripts, bots, and external requests            |
+| ♻ Clean architecture | User auth = JWT, service auth = API key                |
+| 🧪 Testable          | Fully testable without real services                   |
+| 🧩 Works with router | Router behavior unchanged                              |
+
+---
+
+# ⚙️ **Combined Flow (Visual)**
+
+```
+Mailserver → (X-API-KEY) → ApiKeyGateMiddleware  
+         → Intelligent Router → Real or Mock AI Scanner  
+         → Response Logging → Trace ID → JSON Response
+```
+
+---
+
 # **Versioning & Documentation Date**
 
-* Documentation Version: **1.1**
-* Updated: **2025-12-10**
+* Documentation Version: **1.2**
+* Updated: **2025-12-11**
 
