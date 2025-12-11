@@ -54,16 +54,20 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+
+    # 👉 Insert here
+    'middleware.api_key_gate.ApiKeyGateMiddleware',
+
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    # 🔥 Add our advanced layers:
     'middleware.security_gateway.SecurityGatewayMiddleware',
     'middleware.intelligent_router.IntelligentServiceRouterMiddleware',
     'middleware.response_logger.ResponseLoggingMiddleware',
 ]
+
 
 ROOT_URLCONF = 'backend.urls'
 
