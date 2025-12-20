@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'users',
     'emails',
     'scanner',
+    'auditlog',
 ]
 
 MIDDLEWARE = [

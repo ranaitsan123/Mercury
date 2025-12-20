@@ -13,6 +13,8 @@ from users.views import signup
 from graphene_django.views import GraphQLView
 from django.views.decorators.csrf import csrf_exempt
 
+from middleware.graphql_middleware import GraphQLMiddleware
+
 schema_view = get_schema_view(
     openapi.Info(title="Mock Backend API", default_version="v1"),
     public=True,
@@ -38,6 +40,14 @@ urlpatterns = [
 
     path('signup/', signup, name='signup'),
 
-    path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True))),
-
+    path(
+        "graphql/",
+        csrf_exempt(
+            GraphQLView.as_view(
+                graphiql=True,
+                schema=schema,  # your root schema with Query/Mutation
+                middleware=[GraphQLMiddleware(query_limit=50)]
+            )
+        ),
+    ),
 ]
