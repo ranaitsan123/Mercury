@@ -46,9 +46,11 @@ INSTALLED_APPS = [
 
     # Your apps
     'users',
-    'emails',
-    'scanner',
-    'auditlog',
+    # 'emails',
+    # 'scanner',
+    'channels',
+    "emails.apps.EmailsConfig",
+    "scanner.apps.ScannerConfig",
 ]
 
 MIDDLEWARE = [
@@ -186,4 +188,15 @@ LOGGING.setdefault("loggers", {})
 LOGGING["loggers"]["gateway_logger"] = {
     "handlers": ["console"],
     "level": "INFO",
+}
+
+ASGI_APPLICATION = "backend.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("redis", 6379)],
+        },
+    },
 }

@@ -1,58 +1,21 @@
-# # emails/schema.py
-# import graphene
-# from emails.mock_service import mock_service
-# from scanner.service_selector import try_real_send_email
-
-# class SendEmail(graphene.Mutation):
-#     class Arguments:
-#         to = graphene.String(required=True)
-#         subject = graphene.String(required=True)
-#         body = graphene.String(required=True)
-
-#     status = graphene.String()
-#     used = graphene.String()
-
-#     def mutate(self, info, to, subject, body):
-#         request = info.context
-
-#         if not request.user.is_authenticated:
-#             raise Exception("Authentication required")
-
-#         route = request.service_route.get("mailserver", "mock")
-
-#         if route == "real":
-#             res = try_real_send_email({
-#                 "to": to,
-#                 "subject": subject,
-#                 "body": body,
-#             })
-#         else:
-#             res = mock_service.send_email(to, subject, body)
-
-#         return SendEmail(
-#             status=res.get("status", "sent"),
-#             used=route,
-#         )
-
-
-# class Query(graphene.ObjectType):
-#     pass
-
-
-# class Mutation(graphene.ObjectType):
-#     send_email = SendEmail.Field()
-
 import graphene
 from graphene_django import DjangoObjectType
+
 from backend.common.graphql_permissions import login_required
 from emails.models import Email
 from scanner.models import ScanLog
+from emails.mock_service import mock_service
+from scanner.service_selector import try_real_send_email
 
+
+# =====================
+# TYPES
+# =====================
 
 class ScanLogType(DjangoObjectType):
     class Meta:
         model = ScanLog
-        fields = ("result", "confidence", "scanned_at")
+        fields = ("result", "confidence", "created_at")
 
 
 class EmailType(DjangoObjectType):
@@ -63,33 +26,81 @@ class EmailType(DjangoObjectType):
         fields = (
             "id",
             "sender",
+            "recipient",
             "subject",
             "body",
+            "folder",
             "created_at",
-            "is_outgoing",
         )
 
-    def resolve_scan(self, info):
-        return getattr(self, "scan", None)
+
+# =====================
+# QUERIES
+# =====================
 
 class Query(graphene.ObjectType):
     my_emails = graphene.List(
         EmailType,
+        folder=graphene.String(default_value="inbox"),
         limit=graphene.Int(default_value=50),
         offset=graphene.Int(default_value=0),
     )
 
-    email = graphene.Field(EmailType, id=graphene.Int(required=True))
+    @login_required
+    def resolve_my_emails(self, info, folder, limit, offset):
+        return (
+            Email.objects
+            .filter(user=info.context.user, folder=folder)
+            .order_by("-created_at")[offset:offset + limit]
+        )
+
+
+# =====================
+# MUTATIONS
+# =====================
+
+class SendEmail(graphene.Mutation):
+    class Arguments:
+        to = graphene.String(required=True)
+        subject = graphene.String(required=True)
+        body = graphene.String(required=True)
+
+    email = graphene.Field(EmailType)
+    used = graphene.String()
 
     @login_required
-    def resolve_my_emails(self, info, limit, offset):
-        return Email.objects.filter(
-            user=info.context.user
-        ).order_by("-created_at")[offset:offset + limit]
+    def mutate(self, info, to, subject, body):
+        user = info.context.user
+        route = info.context.service_route.get("mailserver", "mock")
 
-    @login_required
-    def resolve_email(self, info, id):
-        email = Email.objects.get(id=id)
-        if email.user != info.context.user:
-            raise Exception("Forbidden")
-        return email
+        if route == "real":
+            try_real_send_email({"to": to, "subject": subject, "body": body})
+        else:
+            mock_service.send_email(to, subject, body)
+
+        email = Email.objects.create(
+            user=user,
+            sender=user.email,
+            recipient=to,
+            subject=subject,
+            body=body,
+            folder="sent",
+            is_outgoing=True,
+        )
+
+        return SendEmail(email=email, used=route)
+
+
+class Mutation(graphene.ObjectType):
+    send_email = SendEmail.Field()
+
+
+# =====================
+# SUBSCRIPTIONS
+# =====================
+
+class EmailSubscription(graphene.ObjectType):
+    email_created = graphene.Field(EmailType)
+
+    def resolve_email_created(root, info):
+        return root.instance

@@ -8,6 +8,7 @@ from emails.schema import (
 
 from scanner.schema import Query as ScannerQuery
 
+from graphene_subscriptions.subscription import Subscription
 
 # =====================
 # ROOT QUERY
@@ -51,4 +52,5 @@ class Mutation(
 schema = graphene.Schema(
     query=Query,
     mutation=Mutation,
+    subscription=Subscription,
 )

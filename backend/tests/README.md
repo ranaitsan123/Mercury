@@ -1,247 +1,294 @@
-# Backend Tests Documentation
+# Mercury Backend Tests
 
-This directory contains comprehensive test suites for the Mercury backend application. Tests are organized by functionality and cover authentication, email services, middleware, routing, and AI scanning features.
+This directory contains the **full test suite** for the Mercury backend system.
+Tests cover **REST APIs**, **GraphQL**, **middleware**, **service routing**, **AI scanning**, **subscriptions**, and **authentication**.
+
+---
 
 ## Test Structure
 
-### Test Files Overview
+### 1. `conftest.py`
 
-#### `test_emails.py`
-Tests for the email service API endpoints.
+* Provides **fixtures** for reusable test components:
 
-**Tests:**
-- `test_mock_send_email()` - Verifies mock email sending functionality
-  - Creates authenticated client
-  - Sends email payload with `to`, `subject`, and `body`
-  - Validates response status (200) and mock send confirmation
+  * `user` — Creates a test user in the database.
+  * `auth_client` — Returns an authenticated APIClient with JWT credentials.
+* Ensures **all tests requiring authentication** can reuse a single fixture.
+* Automatically handles **database access** with `@pytest.mark.django_db`.
+
+---
+
+### 2. `test_emails.py`
+
+**Purpose:** Test email sending functionality.
+
+**Key Tests:**
+
+* `test_mock_send_email()`
+
+  * Sends a mock email.
+  * Checks that the response contains `status: "sent_mock"`.
+  * Verifies the `Email` object is stored in the database with `folder="sent"` and `is_outgoing=True`.
 
 **Requirements:**
-- Authenticated user (JWT token)
-- Email service mock endpoint (`/emails/mock/send/`)
+
+* Authenticated user via `auth_client`.
+* Mock email service endpoint `/emails/mock/send/`.
 
 ---
 
-#### `test_middleware.py`
-Tests for custom middleware components that handle request/response processing.
+### 3. `test_scanner.py`
 
-**Tests:**
-- `test_security_gateway_adds_trace_id()` - Validates SecurityGatewayMiddleware
-  - Ensures each request gets a unique trace ID
-  - Verifies trace ID is a valid UUID format
-  
-- `test_router_sets_service_route()` - Validates IntelligentServiceRouterMiddleware
-  - Confirms service routing decision is set on requests
-  - Verifies service route contains "scanner" key
-  - Checks route value is either "mock" or "real"
-  
-- `test_response_logger_injects_trace()` - Validates ResponseLoggingMiddleware
-  - Confirms trace ID is injected into response JSON
-  - Tests with anonymous users
+**Purpose:** Test the AI scanner API.
 
-**Key Middleware:**
-- **SecurityGatewayMiddleware** - Adds request tracing
-- **IntelligentServiceRouterMiddleware** - Routes requests to mock/real services
-- **ResponseLoggingMiddleware** - Logs responses with trace ID
+**Key Tests:**
+
+* `test_scan_creates_log()`
+
+  * Sends a scan request.
+  * Verifies that a `ScanLog` record is created and linked to the correct user.
+  * Ensures `result` is either `"safe"` or `"malicious"`.
+
+**Database Behavior:**
+
+* Each scan is automatically rolled back after test completion.
 
 ---
 
-#### `test_routing.py`
-Tests for the intelligent service router's configuration handling.
+### 4. `test_users.py`
 
-**Tests:**
-- `test_router_mock_mode()` - Validates mock service mode
-  - Sets `USE_REAL_SERVICES=false`
-  - Verifies scanner routes to "mock" service
-  - Uses module reload to apply environment changes
-  
-- `test_router_real_mode()` - Validates real service mode
-  - Sets `USE_REAL_SERVICES=true`
-  - Verifies scanner routes to "real" service
-  - Demonstrates environment-based routing
+**Purpose:** Test user authentication and profile endpoints.
 
-**Environment Variables:**
-- `USE_REAL_SERVICES` - Controls routing behavior
-  - `"true"` or `"auto"` - Routes to real services (mailserver, AI scanner)
-  - `"false"` - Routes to mock services
+**Key Tests:**
 
----
+* `test_user_me()`
 
-#### `test_scanner.py`
-Tests for the AI scanner API endpoints.
-
-**Tests:**
-- `test_scan_creates_log()` - Validates scanning functionality
-  - Creates authenticated client
-  - Sends scan request with `from`, `subject`, and `body`
-  - Verifies response status (200)
-  - Confirms ScanLog record is created in database
-  - Validates response contains "result" field
-  
-- `test_logs_list()` - Validates log retrieval endpoint
-  - Creates multiple scan logs
-  - Fetches logs via `/scanner/logs/` endpoint
-  - Verifies status (200) and log list is populated
-
-**Requirements:**
-- Authenticated user (JWT token)
-- Scanner endpoints (`/scanner/scan/`, `/scanner/logs/`)
-
----
-
-#### `test_users.py`
-Tests for user authentication and profile endpoints.
-
-**Tests:**
-- `test_user_me()` - Validates user profile endpoint
-  - Creates test user with credentials
-  - Authenticates via token endpoint (`/auth/token/`)
-  - Fetches user profile via `/users/me/` with JWT token
-  - Verifies response contains correct username
+  * Logs in a test user.
+  * Retrieves `/users/me/`.
+  * Confirms the correct username is returned.
 
 **Key Endpoints:**
-- `POST /auth/token/` - Obtain JWT access token
-- `GET /users/me/` - Retrieve current user profile
+
+* `POST /auth/token/` — Obtains JWT access token.
+* `GET /users/me/` — Retrieves user profile.
 
 ---
 
-## Running Tests
+### 5. `test_middleware.py`
 
-### Run All Tests
+**Purpose:** Test custom middleware.
+
+**Key Tests:**
+
+* `test_security_gateway_adds_trace_id()`
+
+  * Ensures every request receives a unique `trace_id`.
+* `test_router_sets_service_route()`
+
+  * Confirms intelligent service routing for mock/real services.
+* `test_response_logger_injects_trace()`
+
+  * Validates that `trace_id` is injected into response JSON.
+
+**Middleware Components:**
+
+* `SecurityGatewayMiddleware` — Adds trace IDs.
+* `IntelligentServiceRouterMiddleware` — Routes requests to mock/real services.
+* `ResponseLoggingMiddleware` — Logs responses with trace ID.
+
+---
+
+### 6. `test_routing.py`
+
+**Purpose:** Test intelligent service routing based on environment variables.
+
+**Key Tests:**
+
+* `test_router_mock_mode()` — Ensures routing goes to **mock services** if `USE_REAL_SERVICES=false`.
+* `test_router_real_mode()` — Ensures routing goes to **real services** if `USE_REAL_SERVICES=true`.
+
+**Environment Variables:**
+
+* `USE_REAL_SERVICES` (`"true"`, `"false"`, `"auto"`).
+
+---
+
+### 7. GraphQL Tests
+
+#### a) `test_graphql_emails.py`
+
+* Tests **inbox query**.
+* Confirms that `myEmails` query returns only the authenticated user's emails.
+* Checks fields like `subject` and `folder`.
+
+#### b) `test_graphql_send_email.py`
+
+* Tests **sendEmail mutation**.
+* Confirms that a sent email is saved correctly in the database (`folder="sent"`, `is_outgoing=True`).
+* Checks that `used` field reflects the service route (`mock` or `real`).
+
+---
+
+### 8. Subscription Tests
+
+#### a) `test_subscriptions.py`
+
+* Tests **event publication** for `email_created`.
+* Confirms signals are wired and Redis/GraphQL subscriptions can consume events.
+* Does **not** require WebSocket or frontend clients.
+
+---
+
+## Running the Tests
+
+### Run all tests:
+
 ```bash
 pytest
 ```
 
-### Run Specific Test File
+### Run a specific test file:
+
 ```bash
 pytest tests/test_emails.py
 ```
 
-### Run Specific Test Function
+### Run a specific test function:
+
 ```bash
 pytest tests/test_scanner.py::test_scan_creates_log
 ```
 
-### Run with Verbose Output
+### Run with verbose output:
+
 ```bash
 pytest -v
 ```
 
-### Run with Coverage Report
+### Run with coverage report:
+
 ```bash
 pytest --cov=.
 ```
 
-### Run with Django Database
+### Run with Django database:
+
 ```bash
 pytest --ds=backend.settings
 ```
 
-## Test Configuration
+---
 
-Tests use the following tools and frameworks:
+## Test Guidelines
 
-- **pytest** - Test runner and framework
-- **pytest-django** - Django integration for pytest
-- **pytest-cov** - Coverage reporting
-- **Django REST Framework TestClient** - API testing
-- **Django RequestFactory** - Middleware testing
-- **monkeypatch** - Environment variable mocking
+1. **Always use fixtures** (`auth_client`, `user`) for authentication.
+2. **Mark database tests** with `@pytest.mark.django_db`.
+3. **Keep tests isolated** — one test per functionality.
+4. **Mock services** for emails and AI scanning whenever possible.
+5. **GraphQL subscriptions** are tested at the event layer, not via WebSockets.
 
-### pytest.ini Configuration
-The project includes `pytest.ini` configuration for:
-- Django settings module configuration
-- Test discovery patterns
-- Coverage settings
-- Output formatting
+---
 
-## Authentication Flow
+## Test Coverage Overview
 
-Most tests use JWT token-based authentication:
+| Test Suite     | Coverage                         |
+| -------------- | -------------------------------- |
+| REST Endpoints | Email, Scanner, Users            |
+| Middleware     | Trace IDs, Routing, Logging      |
+| Routing        | Mock/Real services               |
+| GraphQL        | Inbox, SendEmail mutation        |
+| Subscriptions  | Event publishing (email_created) |
 
-1. Create a test user with `User.objects.create_user()`
-2. Authenticate via `POST /auth/token/` with username/password
-3. Extract `access` token from response
-4. Add token to client headers: `HTTP_AUTHORIZATION="Bearer {token}"`
-5. Make authenticated API requests
+---
 
-Example:
-```python
-user = User.objects.create_user("testuser", "test@example.com", "password")
-response = client.post("/auth/token/", {
-    "username": "testuser", 
-    "password": "password"
-})
-token = response.data["access"]
-client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+## Notes
+
+* All tests **rollback database changes automatically**.
+* Environment variables like `USE_REAL_SERVICES` control routing during tests.
+* GraphQL subscriptions require `graphene_subscriptions` and Redis configured.
+* WebSocket frontend testing is **not included** in this backend suite.
+
+---
+
+This README is now **fully aligned** with your current backend tests, including **REST, GraphQL, middleware, routing, and subscriptions**.
+
+---
+
+## Test Coverage Diagram
+
+```
+              ┌───────────────────┐
+              │   REST Endpoints  │
+              │ (Emails, Scanner, │
+              │  Users API)       │
+              └─────────┬─────────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │   GraphQL API     │
+              │ (Queries, Mutations│
+              │  Inbox, SendEmail)│
+              └─────────┬─────────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │ Subscriptions /   │
+              │ Event Layer       │
+              │ (email_created,   │
+              │  scan_completed)  │
+              └─────────┬─────────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │ Database Models   │
+              │ (Email, ScanLog)  │
+              └─────────┬─────────┘
+                        │
+                        ▼
+              ┌───────────────────┐
+              │  Middleware       │
+              │ (Security, Router,│
+              │  Logging, API Key)│
+              └───────────────────┘
 ```
 
-## Database Testing
+---
 
-Tests marked with `@pytest.mark.django_db` decorator:
-- Have access to the test database
-- Can create model instances
-- Are automatically rolled back after execution
+### Explanation
 
-Example:
-```python
-@pytest.mark.django_db
-def test_example():
-    user = User.objects.create_user("test", "test@example.com", "pass")
-    assert User.objects.count() == 1
-```
+1. **REST Endpoints**
 
-## Environment Variables
+   * Test sending emails, scanning emails, and user endpoints.
+   * Uses `APIClient` for HTTP requests.
+   * Tests verify responses and database side effects.
 
-The test suite respects these environment variables:
+2. **GraphQL API**
 
-| Variable | Values | Purpose |
-|----------|--------|---------|
-| `USE_REAL_SERVICES` | `true`, `false`, `auto` | Determines service routing (real vs mock) |
-| `DJANGO_SECRET_KEY` | string | Django security key |
-| `POSTGRES_HOST` | hostname | Database host |
-| `POSTGRES_PORT` | port number | Database port |
+   * Tests inbox queries, `SendEmail` mutation, and permissions.
+   * Uses `graphene` test client or APIClient with GraphQL POST payloads.
 
-See `.env` file for default values.
+3. **Subscriptions / Event Layer**
 
-## Service Integration
+   * Tests that signals/events are emitted (e.g., `email_created`, `scan_completed`).
+   * Confirms that Redis/GraphQL subscription system receives events.
 
-### Mock Services
-- **Email Service** - Returns mocked success response
-- **AI Scanner** - Returns mocked scan results
+4. **Database Models**
 
-### Real Services
-- **Mailserver** - Actual mail sending via external service
-- **AI Scanner** - Real AI scanning via external service
+   * Core tests validate `Email` and `ScanLog` creation and correctness.
+   * Rollback after each test to maintain isolation.
 
-The middleware intelligently routes requests based on `USE_REAL_SERVICES` setting.
+5. **Middleware**
 
-## Best Practices
+   * Tests ensure:
 
-1. **Use `@pytest.mark.django_db`** - Required for database access
-2. **Authenticate properly** - Follow token-based auth pattern
-3. **Clean assertions** - Use clear, specific assertions
-4. **Test isolation** - Each test should be independent
-5. **Mock environment** - Use monkeypatch for env vars
-6. **Descriptive names** - Test names should describe what they test
+     * Trace IDs are generated (`SecurityGatewayMiddleware`)
+     * Requests are routed to correct service (`IntelligentServiceRouterMiddleware`)
+     * Responses log the trace (`ResponseLoggingMiddleware`)
+     * API key enforcement (`ApiKeyGateMiddleware`)
 
-## Troubleshooting
+---
 
-### "django.db.ProgrammingError" during tests
-- Ensure `@pytest.mark.django_db` decorator is present
-- Run migrations: `python manage.py migrate --run-syncdb`
+✅ **Key Idea:**
+All tests flow **from API → GraphQL → Events → DB → Middleware**, ensuring full-stack coverage while keeping each layer testable in isolation.
 
-### Tests fail with authentication errors
-- Verify token endpoint is accessible
-- Check user creation is successful
-- Ensure JWT credentials are properly formatted
-
-### Service routing tests fail
-- Use `importlib.reload()` after monkeypatching env vars
-- Verify environment variables are set before middleware initialization
-
-## Related Documentation
-
-- [Backend README](../README.md) - General backend setup
-- [Django Testing Documentation](https://docs.djangoproject.com/en/stable/topics/testing/)
-- [pytest-django Documentation](https://pytest-django.readthedocs.io/)
-- [DRF Testing Documentation](https://www.django-rest-framework.org/api-guide/testing/)
+---
