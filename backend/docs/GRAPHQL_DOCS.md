@@ -320,15 +320,23 @@ If you want to embed a **Mermaid diagram** directly in Markdown for nicer visual
 
 ```mermaid
 flowchart TD
-    Frontend -->|GraphQL request| GraphQLAPI
-    GraphQLAPI -->|myEmails()| EmailModel
-    GraphQLAPI -->|sendEmail()| EmailMutation
-    EmailMutation -->|create Email| EmailModel
-    EmailModel -->|signal scan_email| ScanLogModel
-    ScanLogModel -->|publish| scanCompleted
-    EmailModel -->|publish| emailCreated
-    scanCompleted -->|WebSocket| Frontend
-    emailCreated -->|WebSocket| Frontend
+    Frontend[Frontend UI]
+    GraphQLAPI[GraphQL API / Backend]
+    EmailModel[Email Model]
+    ScanLogModel[ScanLog Model]
+    Signals[Signals / Auto Scan]
+    Subscriptions[GraphQL Subscriptions]
+    ApolloCache[Apollo Client Cache]
+
+    Frontend -->|sendEmail() mutation| GraphQLAPI
+    GraphQLAPI --> EmailModel
+    EmailModel -->|post_save signal| Signals
+    Signals --> ScanLogModel
+    ScanLogModel --> Subscriptions
+    Subscriptions --> ApolloCache
+    ApolloCache --> Frontend
+    Frontend -->|myEmails() query| GraphQLAPI
+    GraphQLAPI -->|returns Email with scan| ApolloCache
 ```
 
 * ✅ Shows **queries → models**
