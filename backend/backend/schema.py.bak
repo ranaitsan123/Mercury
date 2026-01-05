@@ -8,6 +8,7 @@ from emails.schema import (
 
 from scanner.schema import Query as ScannerQuery
 
+from graphene_subscriptions.subscription import Subscription
 
 # =====================
 # ROOT QUERY
@@ -39,7 +40,7 @@ class Mutation(
     - JWT auth
     """
 
-    # JWT authentication
+    # JWT auth (required)
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()
     refresh_token = graphql_jwt.Refresh.Field()
@@ -51,4 +52,5 @@ class Mutation(
 schema = graphene.Schema(
     query=Query,
     mutation=Mutation,
+    subscription=Subscription,
 )

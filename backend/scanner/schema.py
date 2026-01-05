@@ -54,14 +54,3 @@ class Query(graphene.ObjectType):
             .filter(user=info.context.user)
             .order_by("-created_at")[offset:offset + limit]
         )
-
-
-# =====================
-# SUBSCRIPTIONS
-# =====================
-
-class ScanSubscription(graphene.ObjectType):
-    scan_completed = graphene.Field(ScanLogType)
-
-    def resolve_scan_completed(root, info):
-        return root.instance

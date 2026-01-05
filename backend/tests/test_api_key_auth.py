@@ -22,7 +22,7 @@ def rf():
 # VALID API KEY
 # -------------------------------
 def test_api_key_valid(monkeypatch, rf):
-    monkeypatch.setenv("MAILSERVER_API_KEY", "secret123")
+    monkeypatch.setenv("SCANNER_API_KEY", "secret123")
 
     # Reload module so middleware loads updated env var
     importlib.reload(api_key_module)
@@ -40,7 +40,7 @@ def test_api_key_valid(monkeypatch, rf):
 # MISSING API KEY
 # -------------------------------
 def test_api_key_missing(monkeypatch, rf):
-    monkeypatch.setenv("MAILSERVER_API_KEY", "secret123")
+    monkeypatch.setenv("SCANNER_API_KEY", "secret123")
     importlib.reload(api_key_module)
 
     middleware = api_key_module.ApiKeyGateMiddleware(get_response)
@@ -57,7 +57,7 @@ def test_api_key_missing(monkeypatch, rf):
 # INVALID API KEY
 # -------------------------------
 def test_api_key_invalid(monkeypatch, rf):
-    monkeypatch.setenv("MAILSERVER_API_KEY", "secret123")
+    monkeypatch.setenv("SCANNER_API_KEY", "secret123")
     importlib.reload(api_key_module)
 
     middleware = api_key_module.ApiKeyGateMiddleware(get_response)
@@ -73,7 +73,7 @@ def test_api_key_invalid(monkeypatch, rf):
 # API KEY ONLY REQUIRED FOR /scanner/scan/
 # -------------------------------
 def test_api_key_not_required_for_other_endpoints(monkeypatch, rf):
-    monkeypatch.setenv("MAILSERVER_API_KEY", "secret123")
+    monkeypatch.setenv("SCANNER_API_KEY", "secret123")
     importlib.reload(api_key_module)
 
     middleware = api_key_module.ApiKeyGateMiddleware(get_response)
@@ -90,13 +90,13 @@ def test_api_key_not_required_for_other_endpoints(monkeypatch, rf):
 # KEY IS READ FROM ENV AT INIT
 # -------------------------------
 def test_api_key_caching(monkeypatch, rf):
-    monkeypatch.setenv("MAILSERVER_API_KEY", "initial")
+    monkeypatch.setenv("SCANNER_API_KEY", "initial")
     importlib.reload(api_key_module)
 
     middleware = api_key_module.ApiKeyGateMiddleware(get_response)
 
     # Change ENV after initialization (should not affect middleware)
-    monkeypatch.setenv("MAILSERVER_API_KEY", "new-value")
+    monkeypatch.setenv("SCANNER_API_KEY", "new-value")
 
     request = rf.post("/scanner/scan/", HTTP_X_API_KEY="initial")
     response = middleware(request)

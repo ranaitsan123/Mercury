@@ -74,7 +74,11 @@ class SendEmail(graphene.Mutation):
         route = info.context.service_route.get("mailserver", "mock")
 
         if route == "real":
-            try_real_send_email({"to": to, "subject": subject, "body": body})
+            try_real_send_email({
+                "to": to,
+                "subject": subject,
+                "body": body,
+            })
         else:
             mock_service.send_email(to, subject, body)
 
@@ -93,14 +97,3 @@ class SendEmail(graphene.Mutation):
 
 class Mutation(graphene.ObjectType):
     send_email = SendEmail.Field()
-
-
-# =====================
-# SUBSCRIPTIONS
-# =====================
-
-class EmailSubscription(graphene.ObjectType):
-    email_created = graphene.Field(EmailType)
-
-    def resolve_email_created(root, info):
-        return root.instance

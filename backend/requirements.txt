@@ -12,4 +12,3 @@ graphene-django
 django-filter
 channels 
 channels-redis 
-graphene-subscriptions
