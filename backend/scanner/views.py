@@ -36,6 +36,7 @@ class ScanView(APIView):
         # 3️⃣ Save scan result
         ScanLog.objects.create(
             email=email,
+            user=request.user,   # ✅ FIX
             result="malicious" if scan["malicious"] else "safe",
             confidence=scan["confidence"]
         )
