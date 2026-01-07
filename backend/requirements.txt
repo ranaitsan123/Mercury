@@ -12,3 +12,4 @@ graphene-django
 django-filter
 channels 
 channels-redis 
+django-cors-headers

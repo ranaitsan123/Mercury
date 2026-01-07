@@ -18,10 +18,9 @@ class Query(
     graphene.ObjectType,
 ):
     """
-    Frontend-facing queries:
-    - Inbox
-    - Email detail
-    - Scan results (read-only)
+    Frontend-facing GraphQL queries:
+    - Inbox emails
+    - Scan logs
     """
     pass
 
@@ -34,12 +33,11 @@ class Mutation(
     graphene.ObjectType,
 ):
     """
-    Frontend-facing mutations:
+    Frontend-facing GraphQL mutations:
     - sendEmail
-    - JWT auth
+    - JWT authentication
     """
 
-    # JWT authentication
     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
     verify_token = graphql_jwt.Verify.Field()
     refresh_token = graphql_jwt.Refresh.Field()

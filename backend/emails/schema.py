@@ -33,6 +33,14 @@ class EmailType(DjangoObjectType):
             "created_at",
         )
 
+    def resolve_scan(self, info):
+        return (
+            ScanLog.objects
+            .filter(email=self)
+            .order_by("-created_at")
+            .first()
+        )
+
 
 # =====================
 # QUERIES
