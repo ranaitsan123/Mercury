@@ -301,10 +301,16 @@ Works perfectly with:
 ## 1️⃣2️⃣ Summary for Frontend Dev 👇
 
 > ✅ Use `/auth/token/` to login
+
 > ✅ Store JWT access token
+
 > ✅ Call `/graphql/` with Authorization header
+
 > ✅ Use queries/mutations above
+
 > ✅ Paginate results
+
 > ❌ Do not call DB directly
+
 > ❌ Do not bypass GraphQL
 
