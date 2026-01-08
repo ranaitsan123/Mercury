@@ -1,7 +1,6 @@
 from django.urls import path
-from .views import ScanView, LogsView
+from .views import ScanView
 
 urlpatterns = [
-    path("scan/", ScanView.as_view(), name="scan"),
-    path("logs/", LogsView.as_view(), name="logs"),
+    path("scan/", ScanView.as_view(), name="scanner-scan"),
 ]
