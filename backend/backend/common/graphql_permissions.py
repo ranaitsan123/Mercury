@@ -1,17 +1,23 @@
 from functools import wraps
 
+from backend.common.graphql_errors import (
+    AuthRequiredError,
+    PermissionDeniedError,
+)
+
 
 def login_required(fn):
     """
     Ensures the user is authenticated in GraphQL resolvers
     """
+
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        info = args[1]  # (self, info, ...)
-        user = info.context.user
+        info = args[1]  # (root/self, info, ...)
+        user = getattr(info.context, "user", None)
 
         if not user or not user.is_authenticated:
-            raise Exception("Authentication required")
+            raise AuthRequiredError()
 
         return fn(*args, **kwargs)
 
@@ -20,18 +26,19 @@ def login_required(fn):
 
 def admin_required(fn):
     """
-    Ensures the user is authenticated AND admin
+    Ensures the user is authenticated AND has role='admin'
     """
+
     @wraps(fn)
     def wrapper(*args, **kwargs):
         info = args[1]
-        user = info.context.user
+        user = getattr(info.context, "user", None)
 
         if not user or not user.is_authenticated:
-            raise Exception("Authentication required")
+            raise AuthRequiredError()
 
         if getattr(user, "role", None) != "admin":
-            raise Exception("Admins only")
+            raise PermissionDeniedError()
 
         return fn(*args, **kwargs)
 
