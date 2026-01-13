@@ -11,12 +11,14 @@ import {
 } from "recharts";
 interface ThreatsOverTimeChartProps {
   data: Array<{ date: string; threats: number }>;
+  className?: string;
 }
 
-export default function ThreatsOverTimeChart({ data }: ThreatsOverTimeChartProps) {
+export default function ThreatsOverTimeChart({ data, className }: ThreatsOverTimeChartProps) {
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
+        {/* ... existing header content ... */}
         <CardTitle>Threats Detected</CardTitle>
         <CardDescription>Last 7 Days</CardDescription>
       </CardHeader>

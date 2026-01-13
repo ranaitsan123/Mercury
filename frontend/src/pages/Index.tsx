@@ -1,5 +1,5 @@
 /**
- * Dashboard Page (Refactored for controlled components)
+ * Dashboard Page (Enchanced "God Level" UI)
  */
 
 import * as React from "react";
@@ -15,6 +15,8 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { getSummaryMetrics, getPaginatedEmailLogs, getLatestThreats, getThreatsByDay } from "@/services/emailService";
 import { EmailLog, Threat } from "@/lib/data";
 import { toast } from "sonner";
+import { Graphism } from "@/lib/Graphism";
+import { animate, stagger } from "animejs";
 
 export default function DashboardPage() {
     // Metrics State
@@ -44,6 +46,68 @@ export default function DashboardPage() {
     const [statusFilter, setStatusFilter] = React.useState<string[]>([]);
 
     const itemsPerPage = 7;
+    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+    const graphismRef = React.useRef<Graphism | null>(null);
+
+    // Init Graphism
+    React.useEffect(() => {
+        if (canvasRef.current && !graphismRef.current) {
+            try {
+                graphismRef.current = new Graphism({
+                    canvas: canvasRef.current,
+                    particleCount: 80,
+                    connectionDistance: 150,
+                    mouseDistance: 200,
+                    color: '99, 102, 241', // Indigo-500 for a cool tech feel
+                });
+            } catch (e) {
+                console.error("Graphism init error:", e);
+            }
+        }
+        return () => {
+            // Cleanup if needed
+        };
+    }, []);
+
+    // Animations
+    React.useEffect(() => {
+        if (!isLoadingMetrics && metrics) {
+            try {
+                animate('.metric-card', {
+                    translateY: [20, 0],
+                    opacity: [0, 1],
+                    delay: stagger(100),
+                    easing: 'easeOutExpo',
+                    duration: 800
+                });
+            } catch (e) {
+                console.error("AnimeJS error:", e);
+                // Fallback: manually set opacity if animation fails
+                document.querySelectorAll('.metric-card').forEach((el) => {
+                    (el as HTMLElement).style.opacity = '1';
+                });
+            }
+        }
+    }, [isLoadingMetrics, metrics]);
+
+    React.useEffect(() => {
+        try {
+            animate('.dashboard-section', {
+                translateY: [30, 0],
+                opacity: [0, 1],
+                delay: stagger(200, { start: 400 }),
+                easing: 'easeOutExpo',
+                duration: 1000
+            });
+        } catch (e) {
+            console.error("AnimeJS error:", e);
+            document.querySelectorAll('.dashboard-section').forEach((el) => {
+                (el as HTMLElement).style.opacity = '1';
+            });
+        }
+    }, []);
+
+
 
     // Fetch Metrics
     React.useEffect(() => {
@@ -118,13 +182,22 @@ export default function DashboardPage() {
         setCurrentPage(1);
     }, [searchTerm, statusFilter]);
 
+    // Common Glassy Card Style
+    const glassCardClass = "bg-background/60 backdrop-blur-xl border-accent/20 shadow-xl hover:shadow-2xl hover:border-accent/40 transition-all duration-300";
+
     return (
         <Layout>
+            {/* Background Canvas */}
+            <canvas
+                ref={canvasRef}
+                className="fixed inset-0 z-[-1] pointer-events-none opacity-50"
+            />
+
             <ErrorBoundary>
                 {isLoadingMetrics ? (
                     <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
                         {[1, 2, 3, 4].map((i) => (
-                            <Card key={i}>
+                            <Card key={i} className={`${glassCardClass} animate-pulse`}>
                                 <CardContent className="pt-6">
                                     <LoadingSpinner size="sm" />
                                 </CardContent>
@@ -133,64 +206,83 @@ export default function DashboardPage() {
                     </div>
                 ) : metrics ? (
                     <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-                        <MetricCard
-                            title="Total Emails Scanned"
-                            value={metrics.totalScanned.toLocaleString()}
-                            icon={ScanLine}
-                            description="Today"
-                        />
-                        <MetricCard
-                            title="Threats Blocked"
-                            value={metrics.threatsBlocked}
-                            icon={ShieldX}
-                            description="Today"
-                        />
-                        <MetricCard
-                            title="Clean Emails"
-                            value={metrics.cleanEmails.toLocaleString()}
-                            icon={ShieldCheck}
-                            description="Today"
-                        />
-                        <MetricCard
-                            title="Detection Accuracy"
-                            value={`${metrics.detectionAccuracy}%`}
-                            icon={Target}
-                        />
+                        <div className="metric-card">
+                            <MetricCard
+                                title="Total Emails Scanned"
+                                value={metrics.totalScanned.toLocaleString()}
+                                icon={(props) => <div className="p-2 bg-primary/10 rounded-lg"><ScanLine {...props} className="h-4 w-4 text-primary" /></div>}
+                                description="Today"
+                                className={glassCardClass}
+                            />
+                        </div>
+                        <div className="metric-card">
+                            <MetricCard
+                                title="Threats Blocked"
+                                value={metrics.threatsBlocked}
+                                icon={(props) => <div className="p-2 bg-red-500/10 rounded-lg"><ShieldX {...props} className="h-4 w-4 text-red-500" /></div>}
+                                description="Today"
+                                className={glassCardClass}
+                            />
+                        </div>
+                        <div className="metric-card">
+                            <MetricCard
+                                title="Clean Emails"
+                                value={metrics.cleanEmails.toLocaleString()}
+                                icon={(props) => <div className="p-2 bg-green-500/10 rounded-lg"><ShieldCheck {...props} className="h-4 w-4 text-green-500" /></div>}
+                                description="Today"
+                                className={glassCardClass}
+                            />
+                        </div>
+                        <div className="metric-card">
+                            <MetricCard
+                                title="Detection Accuracy"
+                                value={`${metrics.detectionAccuracy}%`}
+                                icon={(props) => <div className="p-2 bg-blue-500/10 rounded-lg"><Target {...props} className="h-4 w-4 text-blue-500" /></div>}
+                                className={glassCardClass}
+                            />
+                        </div>
                     </div>
                 ) : null}
             </ErrorBoundary>
 
             <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3 mt-8">
-                <div className="xl:col-span-2">
+                <div className="xl:col-span-2 dashboard-section">
                     <ErrorBoundary>
                         {isLoadingChart ? (
-                            <Card>
+                            <Card className={glassCardClass}>
                                 <CardContent className="py-12">
                                     <LoadingSpinner />
                                 </CardContent>
                             </Card>
                         ) : (
-                            <ThreatsOverTimeChart data={threatsHistory} />
+                            <div className={`h-full ${glassCardClass} rounded-xl overflow-hidden`}>
+                                <div className="p-6">
+                                    <h3 className="font-semibold text-lg mb-4">Threat Trends</h3>
+                                    <ThreatsOverTimeChart data={threatsHistory} />
+                                </div>
+                            </div>
                         )}
                     </ErrorBoundary>
                 </div>
-                <div>
+                <div className="dashboard-section">
                     <ErrorBoundary>
                         {isLoadingThreats ? (
-                            <Card>
+                            <Card className={glassCardClass}>
                                 <CardContent className="py-12">
                                     <LoadingSpinner />
                                 </CardContent>
                             </Card>
                         ) : (
-                            <LatestThreats threats={threats} />
+                            <div className={`h-full ${glassCardClass} rounded-xl overflow-hidden`}>
+                                <LatestThreats threats={threats} />
+                            </div>
                         )}
                     </ErrorBoundary>
                 </div>
             </div>
 
-            <div className="mt-8">
-                <Card>
+            <div className="mt-8 dashboard-section opacity-0">
+                <Card className={glassCardClass}>
                     <CardHeader>
                         <CardTitle>Email Logs</CardTitle>
                     </CardHeader>

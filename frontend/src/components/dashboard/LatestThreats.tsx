@@ -5,11 +5,12 @@ import { ShieldAlert } from "lucide-react";
 
 interface LatestThreatsProps {
   threats: Threat[];
+  className?: string; // Add optional className
 }
 
-export default function LatestThreats({ threats }: LatestThreatsProps) {
+export default function LatestThreats({ threats, className }: LatestThreatsProps) {
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <CardTitle>Latest Critical Threats</CardTitle>
         <CardDescription>Recently identified high-priority threats.</CardDescription>

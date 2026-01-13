@@ -21,7 +21,7 @@ export default function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center border-b bg-background px-4 md:px-6 sticky top-0 z-30 bg-opacity-75 backdrop-blur-sm">
+    <header className="flex h-16 items-center border-b border-border/40 bg-background/60 px-4 md:px-6 sticky top-0 z-30 backdrop-blur-xl">
       <div className="flex items-center gap-4">
         <img src="https://mgx-backend-cdn.metadl.com/generate/images/761500/2025-12-27/0bbfa984-7dc5-4dd4-a9e8-38afbcc957d1.png" alt="Logo" className="h-8 w-8" />
         <h1 className="text-lg font-semibold text-foreground/90 hidden md:block">

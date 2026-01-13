@@ -57,6 +57,7 @@ export interface EmailLogTableProps {
     onSearchChange: (search: string) => void;
     statusFilter: string[];
     onStatusFilterChange: (status: string[]) => void;
+    className?: string;
 }
 
 export default function EmailLogTable({
@@ -70,6 +71,7 @@ export default function EmailLogTable({
     onSearchChange,
     statusFilter,
     onStatusFilterChange,
+    className,
 }: EmailLogTableProps) {
     const handleStatusFilterChange = (status: string, checked: boolean) => {
         const nextFilter = checked
@@ -86,7 +88,7 @@ export default function EmailLogTable({
     const hasActiveFilters = searchTerm !== "" || statusFilter.length > 0;
 
     return (
-        <div>
+        <div className={className}>
             <div className="flex items-center gap-4 mb-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

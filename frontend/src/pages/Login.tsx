@@ -9,12 +9,51 @@ import { loginMock } from "@/lib/auth";
 import { USE_MOCK } from "@/lib/data";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
+import { Graphism } from "@/lib/Graphism";
+import { animate } from "animejs";
 
 export default function LoginPage() {
     const [email, setEmail] = React.useState("");
     const [password, setPassword] = React.useState("");
     const [isLoading, setIsLoading] = React.useState(false);
     const navigate = useNavigate();
+
+    const canvasRef = React.useRef<HTMLCanvasElement>(null);
+    const graphismRef = React.useRef<Graphism | null>(null);
+
+    // Init Graphism
+    React.useEffect(() => {
+        if (canvasRef.current && !graphismRef.current) {
+            try {
+                graphismRef.current = new Graphism({
+                    canvas: canvasRef.current,
+                    particleCount: 60, // Slightly fewer for clean look on auth
+                    connectionDistance: 150,
+                    mouseDistance: 200,
+                    color: '99, 102, 241',
+                });
+            } catch (e) {
+                console.error("Graphism init error:", e);
+            }
+        }
+    }, []);
+
+    // Animation
+    React.useEffect(() => {
+        try {
+            animate('.auth-card', {
+                translateY: [20, 0],
+                opacity: [0, 1],
+                easing: 'easeOutExpo',
+                duration: 800,
+                delay: 200
+            });
+        } catch (e) {
+            console.error("AnimeJS error:", e);
+            const el = document.querySelector('.auth-card') as HTMLElement;
+            if (el) el.style.opacity = '1';
+        }
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,8 +106,14 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-background px-4">
-            <Card className="w-full max-w-sm">
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background/20 px-4">
+            {/* Background Canvas */}
+            <canvas
+                ref={canvasRef}
+                className="fixed inset-0 z-[-1] pointer-events-none opacity-50"
+            />
+
+            <Card className="w-full max-w-sm auth-card opacity-0 bg-background/60 backdrop-blur-xl border-accent/20 shadow-2xl">
                 <CardHeader className="space-y-1 flex flex-col items-center">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-2">
                         <ShieldCheck className="h-6 w-6 text-primary" />
@@ -96,6 +141,7 @@ export default function LoginPage() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 disabled={isLoading}
+                                className="bg-background/50"
                             />
                         </div>
                         <div className="grid gap-2">
@@ -107,6 +153,7 @@ export default function LoginPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 disabled={isLoading}
+                                className="bg-background/50"
                             />
                         </div>
                     </CardContent>
