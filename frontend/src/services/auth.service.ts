@@ -19,7 +19,8 @@ export const authService = {
      */
     async login(email: string, password: string): Promise<boolean> {
         try {
-            const response = await fetch("http://localhost:8000/auth/token/", {
+            const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiBase}/auth/token/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -49,7 +50,8 @@ export const authService = {
      */
     async signup(email: string, password: string): Promise<boolean> {
         try {
-            const response = await fetch("http://localhost:8000/auth/signup/", {
+            const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+            const response = await fetch(`${apiBase}/auth/signup/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

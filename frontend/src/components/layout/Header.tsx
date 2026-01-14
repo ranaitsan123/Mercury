@@ -9,14 +9,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { logoutMock } from "@/lib/auth";
+import { authService } from "@/services/auth.service";
 
 export default function Header() {
   const { setTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logoutMock();
+    authService.logout();
     navigate("/login");
   };
 
