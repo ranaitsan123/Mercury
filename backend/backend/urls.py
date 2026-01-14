@@ -11,13 +11,10 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
 
-from django.contrib.auth import views as auth_views
-from users.views import signup
-
 from graphene_django.views import GraphQLView
-
 from django.conf import settings
-from backend.schema import schema  # ✅ IMPORT SCHEMA
+
+from backend.schema import schema
 
 
 schema_view = get_schema_view(
@@ -28,32 +25,28 @@ schema_view = get_schema_view(
 
 
 urlpatterns = [
+    # Admin
     path("admin/", admin.site.urls),
 
-    # Auth
+    # JWT Auth (API)
     path("auth/token/", TokenObtainPairView.as_view()),
     path("auth/token/refresh/", TokenRefreshView.as_view()),
 
-    # Apps
+    # App APIs
     path("users/", include("users.urls")),
     path("emails/", include("emails.urls")),
     path("scanner/", include("scanner.urls")),
 
-    # Swagger
+    # API Docs
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0)),
 
-    # Auth pages
-    path("login/", auth_views.LoginView.as_view(template_name="registration/login.html")),
-    path("logout/", auth_views.LogoutView.as_view()),
-    path("signup/", signup),
-
-    # ✅ GraphQL endpoint
+    # GraphQL
     path(
         "graphql/",
         csrf_exempt(
             GraphQLView.as_view(
                 schema=schema,
-                graphiql=settings.DEBUG,  # ✅ DEV ONLY
+                graphiql=settings.DEBUG,  # dev only
             )
         ),
     ),
