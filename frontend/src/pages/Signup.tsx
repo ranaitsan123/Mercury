@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus } from "lucide-react";
-import { loginMock } from "@/lib/auth";
-import { USE_MOCK } from "@/services/emailService";
+import { UserPlus, AlertCircle } from "lucide-react";
+import { authService } from "@/services/auth.service";
 import { toast } from "sonner";
-import { AlertCircle } from "lucide-react";
 import { Graphism } from "@/lib/Graphism";
 import { animate } from "animejs";
+import { DATA_MODE } from "@/services/email.service";
 
 export default function SignupPage() {
     const [email, setEmail] = React.useState("");
@@ -20,6 +19,8 @@ export default function SignupPage() {
 
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const graphismRef = React.useRef<Graphism | null>(null);
+
+    const USE_MOCK = DATA_MODE === 'mock';
 
     // Init Graphism
     React.useEffect(() => {
@@ -55,23 +56,26 @@ export default function SignupPage() {
         }
     }, []);
 
-    const handleSignup = (e: React.FormEvent) => {
+    const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (USE_MOCK) {
-            // MOCK MODE: Simulate successful signup
-            loginMock();
-            toast.success("Account Created (Mock)", {
-                description: "Your mock account has been created and you are now logged in.",
-            });
-            navigate("/");
+        if (password !== confirmPassword) {
+            toast.error("Password mismatch", { description: "Passwords do not match." });
             return;
         }
 
-        // REAL MODE: Placeholder for real signup logic
-        toast.error("Signup Unavailable", {
-            description: "Real account creation requires a running backend."
-        });
+        const success = await authService.signup(email, password);
+
+        if (success) {
+            toast.success("Account Created", {
+                description: "You can now log in with your new account.",
+            });
+            navigate("/login");
+        } else {
+            toast.error("Signup Failed", {
+                description: "An error occurred during account creation. Is the backend running?"
+            });
+        }
     };
 
     return (

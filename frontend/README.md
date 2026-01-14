@@ -72,54 +72,65 @@ export default defineConfig([
 ])
 ```
 
-# Mercury Dashboard Integration Guide
+# Mercury Backend Integration
 
-This frontend connects to the Mercury Django backend service. Below is the integration overview for developers.
+This dashboard is designed to work seamlessly with the Mercury AI Backend, providing real-time visibility into email security scans.
 
-## Data & Authentication Flow
+## 🔐 Authentication Flow (JWT)
 
-### 1. Data Access Layer (`src/services/emailService.ts`)
-The application uses a unified service pattern to abstract the data source. UI components **must not** fetch data directly.
-- **Service**: `EmailService`
-- **Responsibility**: Determines whether to fetch data from the live backend or local mock definitions based on the environment.
+Mercury uses standard JSON Web Token (JWT) authentication to secure backend communication.
 
-### 2. Authentication (JWT)
-Authentication is handled via JSON Web Tokens (JWT).
-- **Storage**: `localStorage` (key: `access_token`)
-- **Injection**: The `ApolloClient` in `src/lib/apolloClient.ts` automatically injects the token into the `Authorization` header (`Bearer <token>`) for every GraphQL request.
-- **Expiry**: Returns a 401 error, which is caught by the Apollo error link to trigger a user notification or redirect.
+1.  **Login**: Users submit credentials via `src/pages/Login.tsx`.
+2.  **Token Storage**: Upon success, the `access_token` is stored in `localStorage`.
+3.  **Automatic Injection**: The Apollo Client (`src/lib/apolloClient.ts`) uses an `authLink` to intercept every outgoing request and inject the `Authorization: Bearer <token>` header automatically.
+4.  **Session Management**: The `ProtectedRoute` component ensures that components requiring authentication are only accessible if a token is present.
+5.  **Logout**: Clearing `localStorage` immediately revokes the frontend's ability to call protected endpoints.
 
-### 3. GraphQL Integration
-The app uses **Apollo Client** for data fetching.
-- **Endpoint**: `/graphql/` (proxied in dev or absolute URL in prod)
-- **Queries**: Defined in `src/graphql/queries.ts`.
-- **Usage**: `EmailService` executes these queries when in **Real Mode**.
+## 📡 GraphQL Architecture
 
-## Environment Configuration
+We use **Apollo Client** as our primary interface for data fetching in "Real Mode".
 
-Control the behavior of the application using `.env`:
+*   **Queries & Mutations**: All GraphQL operations are defined in `src/graphql/queries.ts` for type safety and reuse.
+*   **Error Handling**: A dedicated `errorLink` in `src/lib/apolloClient.ts` captures network and GraphQL errors globally, providing user-friendly notifications (via `sonner` toasts) without crashing the UI.
+*   **Endpoint**: The frontend targets the `/graphql/` path on the backend server. By default, this is set to `http://localhost:8000/graphql/`.
 
-| Variable | Values | Description |
-|----------|--------|-------------|
-| `VITE_DATA_MODE` | `mock` \| `real` | Switches between local mock data and real backend calls. |
+## 🧠 Intelligent Middleware Transparency
 
-### Modes
-- **Mock Mode** (`VITE_DATA_MODE=mock`):
-  - No network calls to backend.
-  - Data is served instantly from `src/lib/mockData.ts`.
-  - Useful for UI development, testing, and offline work.
+The Mercury Backend features an **Intelligent Middleware** layer that scans inbound emails *before* they are logged. 
 
-- **Real Mode** (`VITE_DATA_MODE=real`):
-  - Connects to the GraphQL endpoint.
-  - Requires a valid JWT token.
-  - **Graceful Degradation**: If the backend is offline or returns an error, the service falls back to an empty state (or mock data for critical components) to prevent crashes.
+*   **Frontend Unawareness**: As a frontend developer, you do not need to trigger scans or handle complex security logic. You simply query the `EmailLog` entity.
+*   **Data Structure**: Logs arrive with pre-computed fields:
+    *   `status`: `Clean`, `Suspicious`, or `Malicious`.
+    *   `confidence`: A percentage (0-100) representing the AI's certainty.
+*   **Role**: The dashboard's role is purely to **visualize and report** on these decisions made by the backend's security engine.
 
-## Intelligent Middleware
-The backend employs "Intelligent Middleware" that scans emails before they reach the database. The frontend is transparent to this process; it simply queries the `EmailLog` results.
-- **Status Field**: `Clean` | `Suspicious` | `Malicious`
-- **Confidence**: `0-100` (Displayed directly, never computed frontend-side).
+## 🛠 Real vs. Mock Services
 
-## Development vs Production
-- **Development**: typically runs with `VITE_DATA_MODE=mock` for speed, or `real` with a local Django server running on port 8000.
-- **Production**: Always runs with `VITE_DATA_MODE=real`. Ensure the build pipeline sets this correctly.
+The application implements a "Service Layer" pattern in `src/services/emailService.ts` to isolate UI components from the data source logic.
+
+*   **Component Unawareness**: UI components (like `EmailLogTable`) do not know if they are receiving real or mock data. They simply call `getEmailLogs()` and await the result.
+*   **The Switch**: Data source is controlled by the `VITE_DATA_MODE` environment variable.
+
+| Mode | Behavior | Use Case |
+| :--- | :--- | :--- |
+| **Mock** | Uses `src/lib/mockData.ts` | Offline dev, UI prototyping, and testing. |
+| **Real** | Executes Apollo GraphQL queries | Production or integration with a running backend. |
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the `frontend` root:
+
+```env
+# Modes: "mock" (default) | "real"
+VITE_DATA_MODE=mock
+```
+
+## 🚀 Development vs. Production
+
+*   **Development (`pnpm dev`)**:
+    *   Default mode is usually `mock` for rapid UI iteration.
+    *   HMR (Hot Module Replacement) is active.
+*   **Production (`pnpm build`)**:
+    *   Ensure `VITE_DATA_MODE=real` is set in your build environment.
+    *   The build artifacts in `dist/` are optimized and stripped of development-only logic.
 

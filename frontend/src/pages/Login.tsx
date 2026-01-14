@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Loader2 } from "lucide-react";
-import { loginMock } from "@/lib/auth";
-import { USE_MOCK } from "@/services/emailService";
+import { ShieldCheck, Loader2, AlertCircle } from "lucide-react";
+import { authService } from "@/services/auth.service";
 import { toast } from "sonner";
-import { AlertCircle } from "lucide-react";
 import { Graphism } from "@/lib/Graphism";
 import { animate } from "animejs";
+import { DATA_MODE } from "@/services/email.service";
 
 export default function LoginPage() {
     const [email, setEmail] = React.useState("");
@@ -21,13 +20,15 @@ export default function LoginPage() {
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const graphismRef = React.useRef<Graphism | null>(null);
 
+    const USE_MOCK = DATA_MODE === 'mock';
+
     // Init Graphism
     React.useEffect(() => {
         if (canvasRef.current && !graphismRef.current) {
             try {
                 graphismRef.current = new Graphism({
                     canvas: canvasRef.current,
-                    particleCount: 60, // Slightly fewer for clean look on auth
+                    particleCount: 60,
                     connectionDistance: 150,
                     mouseDistance: 200,
                     color: '99, 102, 241',
@@ -59,50 +60,17 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
 
-        if (USE_MOCK) {
-            // MOCK MODE: Simulate successful login without real network calls
-            setTimeout(() => {
-                loginMock();
-                toast.success("Mock Login Successful", {
-                    description: "You are now logged in to the mock dashboard.",
-                });
-                navigate("/");
-                setIsLoading(false);
-            }, 800);
-            return;
-        }
+        const success = await authService.login(email, password);
 
-        // REAL MODE: Backend authentication
-        try {
-            const response = await fetch("http://localhost:8000/auth/token/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ email, password }),
+        if (success) {
+            toast.success("Login Successful");
+            navigate("/");
+        } else {
+            toast.error("Login Failed", {
+                description: "Review your credentials and check if the backend is online."
             });
-
-            const data = await response.json();
-            if (response.ok) {
-                const token = data.access || data.token;
-                if (token) {
-                    // We'd use setAccessToken here in a real scenario
-                    // setAccessToken(token); 
-                    loginMock(); // Reusing mock helper for session marking
-                    toast.success("Login Successful");
-                    navigate("/");
-                }
-            } else {
-                toast.error("Login Failed", { description: data.detail || "Invalid credentials" });
-            }
-        } catch (error) {
-            console.error("Login error:", error);
-            toast.error("Network Error", {
-                description: "Could not connect to the authentication server.",
-            });
-        } finally {
-            setIsLoading(false);
         }
+        setIsLoading(false);
     };
 
     return (

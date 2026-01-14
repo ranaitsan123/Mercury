@@ -12,14 +12,7 @@ import EmailLogTable from "@/components/dashboard/EmailLogTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import {
-    getSummaryMetrics,
-    getPaginatedEmailLogs,
-    getLatestThreats,
-    getThreatsByDay,
-    EmailLog,
-    Threat
-} from "@/services/emailService";
+import { emailService, EmailLog, Threat } from "@/services/email.service";
 import { toast } from "sonner";
 import { Graphism } from "@/lib/Graphism";
 import { animate, stagger } from "animejs";
@@ -120,7 +113,7 @@ export default function DashboardPage() {
         const fetchMetricsData = async () => {
             setIsLoadingMetrics(true);
             try {
-                const data = await getSummaryMetrics();
+                const data = await emailService.getMetrics();
                 setMetrics(data);
             } catch (error) {
                 console.error("Failed to fetch metrics:", error);
@@ -141,8 +134,8 @@ export default function DashboardPage() {
             setIsLoadingChart(true);
             try {
                 const [threatsData, historyData] = await Promise.all([
-                    getLatestThreats(),
-                    getThreatsByDay()
+                    emailService.getLatestThreats(),
+                    emailService.getThreatTrends()
                 ]);
                 setThreats(threatsData);
                 setThreatsHistory(historyData);
@@ -164,12 +157,13 @@ export default function DashboardPage() {
         const fetchLogsData = async () => {
             setIsLoadingLogs(true);
             try {
-                const response = await getPaginatedEmailLogs(
-                    { searchTerm, statusFilter },
-                    { page: currentPage, itemsPerPage }
+                const response = await emailService.getPaginatedLogs(
+                    currentPage,
+                    itemsPerPage,
+                    { searchTerm, statusFilter }
                 );
                 setLogs(response.data);
-                setTotalPages(response.totalPages);
+                setTotalPages(Math.ceil(response.total / itemsPerPage));
                 setTotalItems(response.total);
             } catch (error) {
                 console.error("Failed to fetch logs:", error);
