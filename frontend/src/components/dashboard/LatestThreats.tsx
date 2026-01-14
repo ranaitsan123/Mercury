@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Threat } from "@/lib/data";
+import { Threat } from "@/services/emailService";
 import { ShieldAlert } from "lucide-react";
 
 interface LatestThreatsProps {

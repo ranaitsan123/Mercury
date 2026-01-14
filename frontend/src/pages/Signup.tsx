@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserPlus } from "lucide-react";
 import { loginMock } from "@/lib/auth";
-import { USE_MOCK } from "@/lib/data";
+import { USE_MOCK } from "@/services/emailService";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
 import { Graphism } from "@/lib/Graphism";

@@ -1,66 +1,61 @@
-import { ApolloClient, InMemoryCache, createHttpLink, from } from '@apollo/client';
-import { setContext } from '@apollo/client/link/context';
-import { onError } from '@apollo/client/link/error';
-import { getAccessToken, removeAccessToken } from './auth';
-import { toast } from 'sonner';
+import { ApolloClient, InMemoryCache, createHttpLink, from } from "@apollo/client";
+import { setContext } from "@apollo/client/link/context";
+import { onError } from "@apollo/client/link/error";
+import { toast } from "sonner";
 
+import { authService } from "@/services/auth.service";
+
+// Create HTTP link to the GraphQL endpoint
 const httpLink = createHttpLink({
-    uri: 'http://localhost:8000/graphql/',
+    uri: "http://localhost:8000/graphql/",
 });
 
+// Middleware to inject JWT token
 const authLink = setContext((_, { headers }) => {
-    // get the authentication token from local storage if it exists
-    const token = getAccessToken();
-    // return the headers to the context so httpLink can read them
+    // Get the authentication token from our auth service
+    const token = authService.getToken();
+
+    // Return the headers to the context so httpLink can read them
     return {
         headers: {
             ...headers,
             authorization: token ? `Bearer ${token}` : "",
         }
-    }
+    };
 });
 
-const errorLink = onError(({ error }) => {
-    if (error) {
-        // In Apollo Client 4, GraphQL errors are bundled in error.errors if it's a CombinedGraphQLErrors
-        const graphQLErrors = (error as any).errors;
+// Error handling middleware
+const errorLink = onError((errorResponse: any) => {
+    const { graphQLErrors, networkError } = errorResponse;
+    if (graphQLErrors) {
+        graphQLErrors.forEach(({ message, locations, path }) => {
+            console.error(
+                `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+            );
 
-        if (graphQLErrors && Array.isArray(graphQLErrors)) {
-            graphQLErrors.forEach(({ message, extensions }: any) => {
-                console.error(
-                    `[GraphQL error]: Message: ${message}`
-                );
+            // Handle 401/403 specifically if the backend returns them as graphql errors with codes
+            // For now, generic logging is sufficient
+        });
+        toast.error("Data Error", { description: "There was an issue processing your request." });
+    }
 
-                // Handle specific error codes or messages
-                if (extensions?.code === 'UNAUTHENTICATED') {
-                    removeAccessToken();
-                    window.location.href = '/login';
-                }
-
-                const lowerMessage = message.toLowerCase();
-                if (lowerMessage.includes('admin only')) {
-                    toast.error('Access Denied', {
-                        description: 'Admin privileges are required to perform this action.',
-                    });
-                } else if (lowerMessage.includes('limit exceeded')) {
-                    toast.warning('Usage Limit Exceeded', {
-                        description: 'Please try again later.',
-                    });
-                }
-            });
+    if (networkError) {
+        console.error(`[Network error]: ${networkError}`);
+        // Handle 401/403 status codes from network error
+        if ('statusCode' in networkError && networkError.statusCode === 401) {
+            toast.error("Session Expired", { description: "Please login again." });
+            // Optionally redirect to login
+            // window.location.href = '/login'; 
+        } else if ('statusCode' in networkError && networkError.statusCode === 403) {
+            toast.error("Access Denied", { description: "You do not have permission to view this resource." });
         } else {
-            // If there are no graphQLErrors, treat it as a network or general error
-            console.error(`[Error]: ${error}`);
-            toast.error('Network Error', {
-                description: 'Please check your internet connection and try again.',
-            });
+            toast.error("Connection Error", { description: "Could not connect to the server." });
         }
     }
 });
 
-const client = new ApolloClient({
+// Initialize Apollo Client
+export const client = new ApolloClient({
     link: from([errorLink, authLink, httpLink]),
     cache: new InMemoryCache(),
 });
-
-export default client;

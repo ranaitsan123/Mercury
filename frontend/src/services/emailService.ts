@@ -2,22 +2,36 @@
  * Email Service
  * 
  * Purpose: Abstract data access layer for email-related operations.
- * This service acts as a proxy for the data layer in src/lib/data.ts,
- * allowing UI components to remain agnostic about whether data comes
- * from mocks or a real GraphQL backend.
+ * This service controls the data source based on VITE_DATA_MODE environment variable.
  */
 
 import {
-    getEmails,
-    getLatestThreats as getLatestThreatsFromData,
-    getThreatsByDay as getThreatsByDayFromData,
-    getMetrics as getMetricsFromData,
-    EmailLog,
-    Threat
-} from "@/lib/data";
+    MOCK_EMAIL_LOGS,
+    MOCK_THREATS,
+    MOCK_THREATS_BY_DAY,
+    MOCK_METRICS
+} from "@/lib/mockData";
+import { client } from "@/lib/apolloClient";
+import { GET_MY_EMAILS } from "@/graphql/queries";
 
-// Simulated delay to mimic API call (can be removed when using real API)
-const simulateDelay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, ms));
+// --- Types (Re-exported for component usage) ---
+
+export type EmailLog = {
+    id: string;
+    from: string;
+    subject: string;
+    datetime: string;
+    status: "Clean" | "Suspicious" | "Malicious";
+    confidence: number;
+};
+
+export type Threat = {
+    id: string;
+    subject: string;
+    type: string;
+    from: string;
+    datetime?: string; // Optional in case it varies
+};
 
 export interface EmailFilters {
     searchTerm?: string;
@@ -36,14 +50,45 @@ export interface PaginatedResponse<T> {
     totalPages: number;
 }
 
+// --- Configuration ---
+
+export const DATA_MODE = import.meta.env.VITE_DATA_MODE || 'mock';
+export const USE_MOCK = DATA_MODE === 'mock';
+
+// Simulated delay to mimic API call
+const simulateDelay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, ms));
+
+// --- Service Functions ---
+
+/**
+ * Main data fetching function exposed to the app.
+ */
+export async function getEmails(): Promise<EmailLog[]> {
+    await simulateDelay();
+
+    if (USE_MOCK) {
+        // Return a copy to avoid mutation issues
+        return [...MOCK_EMAIL_LOGS];
+    }
+
+    try {
+        const result = await client.query<{ myEmails: EmailLog[] }>({
+            query: GET_MY_EMAILS,
+        });
+        return result.data.myEmails;
+    } catch (error) {
+        console.error("GraphQL query failed:", error);
+        // Fallback to empty state as per "Show empty state" requirement
+        // The error is already handled/toasted by apolloClient's onError link
+        return [];
+    }
+}
+
 /**
  * Fetch all email logs with optional filtering.
  */
 export async function getEmailLogs(filters?: EmailFilters): Promise<EmailLog[]> {
-    // We already have a simulateDelay in some lib/data functions potentially, 
-    // but we'll keep it here as an extra layer of abstraction for now.
-    await simulateDelay();
-
+    // Re-use core getEmails function
     let logs = await getEmails();
 
     if (filters?.searchTerm) {
@@ -89,6 +134,8 @@ export async function getPaginatedEmailLogs(
  */
 export async function getEmailLogById(id: string): Promise<EmailLog | null> {
     await simulateDelay();
+    // Assuming getEmails() returns everything for now (Mock mode)
+    // For Real mode, this might need a specific backend endpoint
     const logs = await getEmails();
     return logs.find((log) => log.id === id) || null;
 }
@@ -98,7 +145,12 @@ export async function getEmailLogById(id: string): Promise<EmailLog | null> {
  */
 export async function getLatestThreats(): Promise<Threat[]> {
     await simulateDelay();
-    return await getLatestThreatsFromData();
+
+    if (USE_MOCK) {
+        return [...MOCK_THREATS];
+    }
+
+    return [];
 }
 
 /**
@@ -106,7 +158,12 @@ export async function getLatestThreats(): Promise<Threat[]> {
  */
 export async function getThreatsByDay(): Promise<Array<{ date: string; threats: number }>> {
     await simulateDelay();
-    return await getThreatsByDayFromData();
+
+    if (USE_MOCK) {
+        return [...MOCK_THREATS_BY_DAY];
+    }
+
+    return [];
 }
 
 /**
@@ -114,5 +171,15 @@ export async function getThreatsByDay(): Promise<Array<{ date: string; threats: 
  */
 export async function getSummaryMetrics(): Promise<any> {
     await simulateDelay();
-    return await getMetricsFromData();
+
+    if (USE_MOCK) {
+        return { ...MOCK_METRICS };
+    }
+
+    return {
+        totalScanned: 0,
+        threatsBlocked: 0,
+        cleanEmails: 0,
+        detectionAccuracy: 0
+    };
 }

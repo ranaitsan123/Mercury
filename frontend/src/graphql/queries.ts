@@ -1,54 +1,27 @@
-import { gql } from '@apollo/client';
+import { gql } from "@apollo/client";
 
-/**
- * Query to fetch the current user's emails.
- */
-export const MY_EMAILS = gql`
+export const GET_MY_EMAILS = gql`
   query MyEmails {
     myEmails {
       id
-      sender
-      recipient
+      from
       subject
-      body
-      folder
-      createdAt
+      datetime
+      status
+      confidence
     }
   }
 `;
 
-/**
- * Query to fetch the current user's scan logs.
- */
-export const MY_SCAN_LOGS = gql`
+export const GET_MY_SCAN_LOGS = gql`
   query MyScanLogs {
     myScanLogs {
       id
-      result
-      confidence
-      createdAt
-      email {
-        subject
-      }
-    }
-  }
-`;
-
-/**
- * Admin-only query to fetch all scan logs in the system.
- */
-export const ALL_SCAN_LOGS = gql`
-  query AllScanLogs {
-    allScanLogs {
-      id
-      user {
-        id
-        email
-      }
-      scanDate
+      from
+      subject
+      datetime
       status
-      threatsDetected
-      details
+      confidence
     }
   }
 `;

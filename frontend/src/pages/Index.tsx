@@ -12,8 +12,14 @@ import EmailLogTable from "@/components/dashboard/EmailLogTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { getSummaryMetrics, getPaginatedEmailLogs, getLatestThreats, getThreatsByDay } from "@/services/emailService";
-import { EmailLog, Threat } from "@/lib/data";
+import {
+    getSummaryMetrics,
+    getPaginatedEmailLogs,
+    getLatestThreats,
+    getThreatsByDay,
+    EmailLog,
+    Threat
+} from "@/services/emailService";
 import { toast } from "sonner";
 import { Graphism } from "@/lib/Graphism";
 import { animate, stagger } from "animejs";
