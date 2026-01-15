@@ -1,4 +1,4 @@
-import { ApolloClient, InMemoryCache, createHttpLink, from } from "@apollo/client";
+import { ApolloClient, InMemoryCache, createHttpLink, from, Observable } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import { onError } from "@apollo/client/link/error";
 import { toast } from "sonner";
@@ -26,28 +26,45 @@ const authLink = setContext((_, { headers }) => {
 });
 
 // Error handling middleware
-const errorLink = onError((errorResponse: any) => {
-    const { graphQLErrors, networkError } = errorResponse;
+const errorLink = onError(({ graphQLErrors, networkError, operation, forward }: any) => {
     if (graphQLErrors) {
-        graphQLErrors.forEach(({ message, locations, path }) => {
+        for (const err of graphQLErrors) {
             console.error(
-                `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+                `[GraphQL error]: Message: ${err.message}, Path: ${err.path}`
             );
-
-            // Handle 401/403 specifically if the backend returns them as graphql errors with codes
-            // For now, generic logging is sufficient
-        });
-        toast.error("Data Error", { description: "There was an issue processing your request." });
+        }
     }
 
     if (networkError) {
         console.error(`[Network error]: ${networkError}`);
-        // Handle 401/403 status codes from network error
-        if ('statusCode' in networkError && networkError.statusCode === 401) {
-            toast.error("Session Expired", { description: "Please login again." });
-            // Optionally redirect to login
-            // window.location.href = '/login'; 
-        } else if ('statusCode' in networkError && networkError.statusCode === 403) {
+
+        // Handle 401 status codes from network error (Session Expired/Token Invalid)
+        const status = (networkError as any).statusCode;
+        if (status === 401) {
+            return new Observable((observer) => {
+                authService.refreshToken()
+                    .then((isValid) => {
+                        if (isValid) {
+                            const subscriber = forward(operation).subscribe({
+                                next: observer.next.bind(observer),
+                                error: observer.error.bind(observer),
+                                complete: observer.complete.bind(observer),
+                            });
+                            return () => subscriber.unsubscribe();
+                        } else {
+                            authService.logout();
+                            toast.error("Session Expired", { description: "Your session has ended. Please login again." });
+                            window.location.href = '/login';
+                            observer.complete();
+                        }
+                    })
+                    .catch((err) => {
+                        observer.error(err);
+                    });
+            });
+        }
+
+        if (status === 403) {
             toast.error("Access Denied", { description: "You do not have permission to view this resource." });
         } else {
             toast.error("Connection Error", { description: "Could not connect to the server." });

@@ -60,14 +60,17 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
 
-        const success = await authService.login(email, password);
+        const result = await authService.login(email, password);
 
-        if (success) {
-            toast.success("Login Successful");
+        if (result.success) {
+            const profile = authService.getUserProfile();
+            toast.success("Login Successful", {
+                description: profile ? `Welcome back, ${profile.username || profile.email}!` : "Welcome back!"
+            });
             navigate("/");
         } else {
             toast.error("Login Failed", {
-                description: "Review your credentials and check if the backend is online."
+                description: result.error || "Review your credentials and check if the backend is online."
             });
         }
         setIsLoading(false);
