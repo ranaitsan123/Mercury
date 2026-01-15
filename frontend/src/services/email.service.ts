@@ -5,7 +5,7 @@
  */
 
 import { client } from "@/lib/apolloClient";
-import { GET_MY_EMAILS } from "@/graphql/queries";
+import { GET_MY_EMAILS, SEND_EMAIL_MUTATION } from "@/graphql/queries";
 import { MOCK_EMAIL_LOGS, MOCK_THREATS, MOCK_THREATS_BY_DAY, MOCK_METRICS } from "@/lib/mockData";
 
 export type EmailLog = {
@@ -13,8 +13,8 @@ export type EmailLog = {
     from: string;
     subject: string;
     datetime: string;
-    status: "Clean" | "Suspicious" | "Malicious";
-    confidence: number;
+    status: "Clean" | "Suspicious" | "Malicious" | "Dangerous";
+    confidence?: number;
     trace_id?: string;
     used?: "real" | "mock";
 };
@@ -29,6 +29,17 @@ export type Threat = {
 
 export const DATA_MODE = import.meta.env.VITE_DATA_MODE || 'mock';
 const USE_MOCK = DATA_MODE === 'mock';
+
+interface SendEmailResponse {
+    sendEmail: {
+        success: boolean;
+        message: string;
+        email?: {
+            id: string;
+            subject: string;
+        };
+    };
+}
 
 export const emailService = {
     /**
@@ -102,5 +113,38 @@ export const emailService = {
             cleanEmails: 0,
             detectionAccuracy: 0
         };
+    },
+
+    /**
+     * Send an email via GraphQL mutation.
+     */
+    async sendEmail(recipient: string, subject: string, body: string): Promise<{ success: boolean; message: string }> {
+        // According to user request: "Do not use mock data here"
+        // Even if USE_MOCK is true, we will try to call the real API if it's for sending logic
+        // This is a common pattern when transitioning from mock to real parts.
+
+        try {
+            const result = await client.mutate<SendEmailResponse>({
+                mutation: SEND_EMAIL_MUTATION,
+                variables: { recipient, subject, body }
+            });
+
+            if (result.data?.sendEmail?.success) {
+                return {
+                    success: true,
+                    message: result.data.sendEmail.message || "Email sent successfully"
+                };
+            } else {
+                return {
+                    success: false,
+                    message: result.data?.sendEmail?.message || "Failed to send email"
+                };
+            }
+        } catch (error: any) {
+            console.error("GraphQL sendEmail error:", error);
+            // Extract meaningful error message if possible
+            const errorMessage = error.message || "An unexpected error occurred while sending the email.";
+            return { success: false, message: errorMessage };
+        }
     }
 };
