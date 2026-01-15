@@ -35,7 +35,6 @@ urlpatterns = [
     # App APIs
     path("users/", include("users.urls")),
     path("emails/", include("emails.urls")),
-    path("scanner/", include("scanner.urls")),
 
     # API Docs
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0)),
