@@ -31,7 +31,7 @@ import { ListFilter, Search, Mail } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
-const STATUS_OPTIONS = ["Clean", "Suspicious", "Malicious"] as const;
+const STATUS_OPTIONS = ["Clean", "Dangerous", "Suspicious", "Malicious"] as const;
 
 const getStatusBadgeVariant = (status: EmailLog["status"]) => {
     switch (status) {
@@ -40,6 +40,7 @@ const getStatusBadgeVariant = (status: EmailLog["status"]) => {
         case "Suspicious":
             return "warning";
         case "Malicious":
+        case "Dangerous":
             return "destructive";
         default:
             return "default";
@@ -57,6 +58,7 @@ export interface EmailLogTableProps {
     onSearchChange: (search: string) => void;
     statusFilter: string[];
     onStatusFilterChange: (status: string[]) => void;
+    fromLabel?: string;
     className?: string;
 }
 
@@ -71,6 +73,7 @@ export default function EmailLogTable({
     onSearchChange,
     statusFilter,
     onStatusFilterChange,
+    fromLabel = "From",
     className,
 }: EmailLogTableProps) {
     const handleStatusFilterChange = (status: string, checked: boolean) => {
@@ -160,7 +163,7 @@ export default function EmailLogTable({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>From</TableHead>
+                                    <TableHead>{fromLabel}</TableHead>
                                     <TableHead>Subject</TableHead>
                                     <TableHead className="hidden md:table-cell">Date/Time</TableHead>
                                     <TableHead>Status</TableHead>
@@ -177,9 +180,12 @@ export default function EmailLogTable({
                                         <TableCell>
                                             <Badge variant={getStatusBadgeVariant(log.status)}>
                                                 {log.status}
+                                                {log.confidence !== undefined && log.confidence !== null && ` (${log.confidence}%)`}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">{log.confidence}%</TableCell>
+                                        <TableCell className="text-right">
+                                            {log.confidence !== undefined && log.confidence !== null ? `${log.confidence}%` : "N/A"}
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="sm">
                                                 View Details
