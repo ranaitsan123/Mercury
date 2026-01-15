@@ -12,7 +12,7 @@ import { animate } from "animejs";
 import { DATA_MODE } from "@/services/email.service";
 
 export default function LoginPage() {
-    const [email, setEmail] = React.useState("");
+    const [username, setUsername] = React.useState("");
     const [password, setPassword] = React.useState("");
     const [isLoading, setIsLoading] = React.useState(false);
     const navigate = useNavigate();
@@ -60,14 +60,17 @@ export default function LoginPage() {
         e.preventDefault();
         setIsLoading(true);
 
-        const success = await authService.login(email, password);
+        const result = await authService.login(username, password);
 
-        if (success) {
-            toast.success("Login Successful");
+        if (result.success) {
+            const profile = authService.getUserProfile();
+            toast.success("Login Successful", {
+                description: profile ? `Welcome back, ${profile.username || profile.email}!` : "Welcome back!"
+            });
             navigate("/");
         } else {
             toast.error("Login Failed", {
-                description: "Review your credentials and check if the backend is online."
+                description: result.error || "Review your credentials and check if the backend is online."
             });
         }
         setIsLoading(false);
@@ -88,7 +91,7 @@ export default function LoginPage() {
                     </div>
                     <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
                     <CardDescription className="text-center">
-                        Enter your email to sign in to your dashboard
+                        Enter your username to sign in to your dashboard
                     </CardDescription>
                     {USE_MOCK && (
                         <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
@@ -100,14 +103,14 @@ export default function LoginPage() {
                 <form onSubmit={handleLogin}>
                     <CardContent className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
+                            <Label htmlFor="username">Username</Label>
                             <Input
-                                id="email"
-                                type="email"
-                                placeholder="m@example.com"
+                                id="username"
+                                type="text"
+                                placeholder="johndoe"
                                 required
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
                                 disabled={isLoading}
                                 className="bg-background/50"
                             />

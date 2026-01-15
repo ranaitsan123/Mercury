@@ -12,6 +12,7 @@ import { animate } from "animejs";
 import { DATA_MODE } from "@/services/email.service";
 
 export default function SignupPage() {
+    const [username, setUsername] = React.useState("");
     const [email, setEmail] = React.useState("");
     const [password, setPassword] = React.useState("");
     const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -64,16 +65,32 @@ export default function SignupPage() {
             return;
         }
 
-        const success = await authService.signup(email, password);
+        const result = await authService.signup(username, email, password);
 
-        if (success) {
+        if (result.success) {
             toast.success("Account Created", {
                 description: "You can now log in with your new account.",
             });
             navigate("/login");
         } else {
-            toast.error("Signup Failed", {
-                description: "An error occurred during account creation. Is the backend running?"
+            let errorMessage = "An error occurred during account creation.";
+            let description = "Please try again later.";
+
+            if (result.error) {
+                if (typeof result.error === 'string') {
+                    errorMessage = result.error;
+                } else {
+                    // Handle DRF-style dynamic errors (e.g., { email: ["Already exists"] })
+                    const keys = Object.keys(result.error);
+                    if (keys.length > 0) {
+                        errorMessage = "Signup Failed";
+                        description = keys.map(k => `${k}: ${result.error![k].join(', ')}`).join('. ');
+                    }
+                }
+            }
+
+            toast.error(errorMessage, {
+                description: description,
             });
         }
     };
@@ -104,6 +121,18 @@ export default function SignupPage() {
                 </CardHeader>
                 <form onSubmit={handleSignup}>
                     <CardContent className="grid gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="username">Username</Label>
+                            <Input
+                                id="username"
+                                type="text"
+                                placeholder="johndoe"
+                                required
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="bg-background/50"
+                            />
+                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="email">Email</Label>
                             <Input
