@@ -1,8 +1,8 @@
 import { gql } from "@apollo/client";
 
 export const GET_MY_EMAILS = gql`
-  query MyEmails($folder: String) {
-    myEmails(folder: $folder) {
+  query MyEmails($folder: String, $limit: Int, $offset: Int) {
+    myEmails(folder: $folder, limit: $limit, offset: $offset) {
       id
       sender
       recipient

@@ -53,6 +53,8 @@ export default function DashboardPage() {
 
     // Folder State
     const [selectedFolder, setSelectedFolder] = React.useState<"inbox" | "sent">("inbox");
+    const [currentPage, setCurrentPage] = React.useState(1);
+    const itemsPerPage = 7;
 
     // Email Logs State via useQuery
     const {
@@ -60,14 +62,15 @@ export default function DashboardPage() {
         loading: isLoadingLogs,
         error: emailError
     } = useQuery<MyEmailsData>(GET_MY_EMAILS, {
-        variables: { folder: selectedFolder },
+        variables: {
+            folder: selectedFolder,
+            limit: itemsPerPage,
+            offset: (currentPage - 1) * itemsPerPage
+        },
     });
 
-    const [currentPage, setCurrentPage] = React.useState(1);
     const [searchTerm, setSearchTerm] = React.useState("");
     const [statusFilter, setStatusFilter] = React.useState<string[]>([]);
-
-    const itemsPerPage = 7;
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const graphismRef = React.useRef<Graphism | null>(null);
 

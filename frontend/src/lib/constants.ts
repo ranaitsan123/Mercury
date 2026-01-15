@@ -1,4 +1,4 @@
-export const ACCESS_TOKEN_KEY = 'access_token';
+export const ACCESS_TOKEN_KEY = 'jwtToken';
 export const REFRESH_TOKEN_KEY = 'refresh_token';
 export const AUTH_STATE_KEY = 'isAuthenticated';
 export const USER_PROFILE_KEY = 'user_profile';
