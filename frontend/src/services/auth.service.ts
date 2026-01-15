@@ -20,6 +20,17 @@ export interface AuthResponse {
     };
 }
 
+export interface LoginPayload {
+    username: string;
+    password: string;
+}
+
+export interface SignupPayload {
+    username: string;
+    email: string;
+    password: string;
+}
+
 export interface SignupResult {
     success: boolean;
     error?: string | Record<string, string[]>;
@@ -34,14 +45,15 @@ export const authService = {
     /**
      * Authenticate with the backend.
      */
-    async login(email: string, password: string): Promise<LoginResult> {
+    async login(username: string, password: string): Promise<LoginResult> {
         try {
+            const payload: LoginPayload = { username, password };
             const response = await fetch(AUTH_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ username: email, password }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -74,14 +86,15 @@ export const authService = {
     /**
      * Signup a new user.
      */
-    async signup(email: string, password: string): Promise<SignupResult> {
+    async signup(username: string, email: string, password: string): Promise<SignupResult> {
         try {
+            const payload: SignupPayload = { username, email, password };
             const response = await fetch(SIGNUP_URL, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ username: email, password, email }),
+                body: JSON.stringify(payload),
             });
 
             if (response.ok) {
@@ -106,6 +119,12 @@ export const authService = {
     async getProfile(): Promise<any> {
         try {
             const response = await authenticatedFetch('/users/me/');
+
+            if (response.status === 401) {
+                this.logout();
+                window.location.href = '/login';
+                return null;
+            }
 
             if (!response.ok) return null;
 

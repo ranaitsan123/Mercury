@@ -12,6 +12,7 @@ import { animate } from "animejs";
 import { DATA_MODE } from "@/services/email.service";
 
 export default function SignupPage() {
+    const [username, setUsername] = React.useState("");
     const [email, setEmail] = React.useState("");
     const [password, setPassword] = React.useState("");
     const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -64,7 +65,7 @@ export default function SignupPage() {
             return;
         }
 
-        const result = await authService.signup(email, password);
+        const result = await authService.signup(username, email, password);
 
         if (result.success) {
             toast.success("Account Created", {
@@ -120,6 +121,18 @@ export default function SignupPage() {
                 </CardHeader>
                 <form onSubmit={handleSignup}>
                     <CardContent className="grid gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="username">Username</Label>
+                            <Input
+                                id="username"
+                                type="text"
+                                placeholder="johndoe"
+                                required
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="bg-background/50"
+                            />
+                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="email">Email</Label>
                             <Input
