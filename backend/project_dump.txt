@@ -1,0 +1,78 @@
+==============================
+PROJECT COMMAND DUMP
+==============================
+
+$ ls -a
+.
+..
+Dockerfile
+README.md
+backend
+docs
+emails
+entrypoint.sh
+manage.py
+middleware
+project_dump.txt
+pytest.ini
+realtime
+requirements.txt
+scanner
+templates
+tests
+users
+
+$ cat .env docker-compose.yml
+
+$ cd backend
+$ ls
+__init__.py
+asgi.py
+common
+schema.py
+settings.py
+urls.py
+wsgi.py
+
+$ cat Dockerfile
+
+$ cat requirements.txt
+
+$ cat entrypoint.sh
+
+$ cat manage.py
+
+$ ls emails
+
+$ cat emails/*.py
+
+$ ls users
+
+$ cat users/*
+
+$ ls scanner
+
+$ cat scanner/*.py
+
+$ ls middleware
+
+$ cat middleware/*
+
+$ ls tests
+
+$ cat tests/*
+
+$ ls realtime
+
+$ cat realtime/*
+
+$ ls backend
+
+$ cat backend/*.py
+
+$ ls backend/common
+
+$ cat backend/common/*
+
+==============================
+END OF DUMP
