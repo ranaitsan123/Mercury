@@ -31,7 +31,7 @@ export const GET_MY_SCAN_LOGS = gql`
 
 export const SEND_EMAIL_MUTATION = gql`
   mutation SendEmail($recipient: String!, $subject: String!, $body: String!) {
-    sendEmail(recipient: $recipient, subject: $subject, body: $body) {
+    sendEmail(to: $recipient, subject: $subject, body: $body) {
       success
       message
       email {
