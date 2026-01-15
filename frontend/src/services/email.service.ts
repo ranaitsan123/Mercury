@@ -1,22 +1,38 @@
 /**
  * Email Service
- * 
- * Purpose: Data access layer for email-related operations via GraphQL.
+ *
+ * Purpose:
+ * - Read emails via GraphQL
+ * - Send emails via REST
+ * - Keep mock mode for UI dev
  */
 
 import { client } from "@/lib/apolloClient";
-import { GET_MY_EMAILS, SEND_EMAIL_MUTATION } from "@/graphql/queries";
-import { MOCK_EMAIL_LOGS, MOCK_THREATS, MOCK_THREATS_BY_DAY, MOCK_METRICS } from "@/lib/mockData";
+import { GET_MY_EMAILS } from "@/graphql/queries";
+import {
+    MOCK_EMAIL_LOGS,
+    MOCK_THREATS,
+    MOCK_THREATS_BY_DAY,
+    MOCK_METRICS
+} from "@/lib/mockData";
+import { authenticatedFetch } from "@/lib/api";
+
+/* =========================
+   TYPES
+========================= */
 
 export type EmailLog = {
     id: string;
-    from: string;
+    sender: string;
+    recipient: string;
     subject: string;
-    datetime: string;
-    status: "Clean" | "Suspicious" | "Malicious" | "Dangerous";
-    confidence?: number;
-    trace_id?: string;
-    used?: "real" | "mock";
+    body?: string;
+    createdAt: string;
+    folder?: "inbox" | "sent";
+    scan?: {
+        result: "safe" | "malicious" | "clean" | "dangerous";
+        confidence?: number;
+    };
 };
 
 export type Threat = {
@@ -27,52 +43,66 @@ export type Threat = {
     datetime?: string;
 };
 
-export const DATA_MODE = import.meta.env.VITE_DATA_MODE || 'mock';
-const USE_MOCK = DATA_MODE === 'mock';
+/* =========================
+   DATA MODE
+========================= */
 
-interface SendEmailResponse {
-    sendEmail: {
-        success: boolean;
-        message: string;
-        email?: {
-            id: string;
-            subject: string;
-        };
-    };
-}
+export const DATA_MODE = import.meta.env.VITE_DATA_MODE || "mock";
+const USE_MOCK = DATA_MODE === "mock";
+
+/* =========================
+   SERVICE
+========================= */
 
 export const emailService = {
     /**
-     * Fetch emails for the current user.
+     * 📩 Fetch emails (GraphQL)
      */
-    async getEmails(): Promise<EmailLog[]> {
+    async getEmails(folder?: string): Promise<EmailLog[]> {
         if (USE_MOCK) return [...MOCK_EMAIL_LOGS];
 
         try {
             const result = await client.query<{ myEmails: EmailLog[] }>({
                 query: GET_MY_EMAILS,
-                fetchPolicy: 'network-only' // Ensure we get fresh data
+                variables: {
+                    folder,
+                    limit: 50,
+                    offset: 0
+                },
+                fetchPolicy: "network-only"
             });
+
             return result.data.myEmails || [];
         } catch (error) {
             console.error("Failed to fetch emails via GraphQL:", error);
-            return []; // Empty array as per requirement
+            return [];
         }
     },
 
     /**
-     * Fetch paginated logs.
+     * 📄 Paginated logs (frontend-side)
      */
-    async getPaginatedLogs(page: number, itemsPerPage: number, filters?: any): Promise<{ data: EmailLog[], total: number }> {
+    async getPaginatedLogs(
+        page: number,
+        itemsPerPage: number,
+        filters?: any
+    ): Promise<{ data: EmailLog[]; total: number }> {
         const allLogs = await this.getEmails();
-        // Filtering logic can be added here or move to backend if GraphQL supports it
         let filtered = allLogs;
+
         if (filters?.searchTerm) {
             const term = filters.searchTerm.toLowerCase();
-            filtered = allLogs.filter(l => l.subject.toLowerCase().includes(term) || l.from.toLowerCase().includes(term));
+            filtered = filtered.filter(
+                (l) =>
+                    l.subject.toLowerCase().includes(term) ||
+                    l.sender.toLowerCase().includes(term)
+            );
         }
+
         if (filters?.statusFilter?.length > 0) {
-            filtered = filtered.filter(l => filters.statusFilter.includes(l.status));
+            filtered = filtered.filter((l) =>
+                filters.statusFilter.includes(l.scan?.result || "")
+            );
         }
 
         const start = (page - 1) * itemsPerPage;
@@ -83,26 +113,23 @@ export const emailService = {
     },
 
     /**
-     * Fetch latest threats.
+     * 🚨 Latest threats
      */
     async getLatestThreats(): Promise<Threat[]> {
         if (USE_MOCK) return [...MOCK_THREATS];
-
-        // Placeholder for real GraphQL threat query if exists
         return [];
     },
 
     /**
-     * Fetch threat trends for charts.
+     * 📊 Threat trends
      */
     async getThreatTrends(): Promise<any[]> {
         if (USE_MOCK) return [...MOCK_THREATS_BY_DAY];
-
         return [];
     },
 
     /**
-     * Fetch summary metrics.
+     * 📈 Summary metrics
      */
     async getMetrics(): Promise<any> {
         if (USE_MOCK) return { ...MOCK_METRICS };
@@ -116,35 +143,48 @@ export const emailService = {
     },
 
     /**
-     * Send an email via GraphQL mutation.
+     * ✉️ SEND EMAIL (REST — NOT GRAPHQL)
+     * Endpoint: POST /emails/send/
      */
-    async sendEmail(recipient: string, subject: string, body: string): Promise<{ success: boolean; message: string }> {
-        // According to user request: "Do not use mock data here"
-        // Even if USE_MOCK is true, we will try to call the real API if it's for sending logic
-        // This is a common pattern when transitioning from mock to real parts.
-
+    async sendEmail(
+        recipient: string,
+        subject: string,
+        body: string
+    ): Promise<{ success: boolean; message: string }> {
         try {
-            const result = await client.mutate<SendEmailResponse>({
-                mutation: SEND_EMAIL_MUTATION,
-                variables: { recipient, subject, body }
+            const response = await authenticatedFetch("/emails/send/", {
+                method: "POST",
+                body: JSON.stringify({
+                    to: recipient,
+                    subject,
+                    body
+                })
             });
 
-            if (result.data?.sendEmail?.success) {
-                return {
-                    success: true,
-                    message: result.data.sendEmail.message || "Email sent successfully"
-                };
-            } else {
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
                 return {
                     success: false,
-                    message: result.data?.sendEmail?.message || "Failed to send email"
+                    message:
+                        errorData?.error ||
+                        errorData?.detail ||
+                        "Failed to send email"
                 };
             }
+
+            const data = await response.json();
+            return {
+                success: true,
+                message: "Email sent successfully"
+            };
         } catch (error: any) {
-            console.error("GraphQL sendEmail error:", error);
-            // Extract meaningful error message if possible
-            const errorMessage = error.message || "An unexpected error occurred while sending the email.";
-            return { success: false, message: errorMessage };
+            console.error("REST sendEmail error:", error);
+            return {
+                success: false,
+                message:
+                    error.message ||
+                    "Unable to reach the email gateway"
+            };
         }
     }
 };
