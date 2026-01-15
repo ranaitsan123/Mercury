@@ -2,7 +2,7 @@ import { authService } from "@/services/auth.service";
 import { ACCESS_TOKEN_KEY } from "./constants";
 import { toast } from "sonner";
 
-const apiBase = import.meta.env.VITE_API_URL || "https://literate-umbrella-4jp6v55446vjc9vv-8000.app.github.dev/";
+const apiBase = import.meta.env.VITE_API_URL || "https://zany-space-goldfish-x5gxp77664v6hxpv-8000.app.github.dev/";
 
 interface FetchOptions extends RequestInit {
     headers?: Record<string, string>;
