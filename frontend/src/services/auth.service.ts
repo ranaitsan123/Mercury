@@ -184,7 +184,6 @@ export const authService = {
      * Clear session.
      */
     logout() {
-
         localStorage.removeItem(ACCESS_TOKEN_KEY);
         localStorage.removeItem(REFRESH_TOKEN_KEY);
         localStorage.removeItem(AUTH_STATE_KEY);
@@ -193,7 +192,6 @@ export const authService = {
 
     /**
      * Get stored token.
-
      */
     getToken(): string | null {
         return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -207,8 +205,6 @@ export const authService = {
     },
 
     /**
-
-
      * Get stored refresh token.
      */
     getRefreshToken(): string | null {
@@ -223,7 +219,6 @@ export const authService = {
     },
 
     /**
-
      * Get stored user profile.
      */
     getUserProfile(): any {
@@ -235,7 +230,6 @@ export const authService = {
      * Check if user is authenticated locally.
      */
     isAuthenticated(): boolean {
-
         return localStorage.getItem(AUTH_STATE_KEY) === 'true' && !!this.getToken();
     }
 };
