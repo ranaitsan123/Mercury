@@ -47,15 +47,13 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "drf_yasg",
     "graphene_django",
+    "graphql_jwt",  # ✅ ADD THIS
 
     # Local apps
     "users",
     "emails.apps.EmailsConfig",
     "scanner.apps.ScannerConfig",
     "backend.common",
-    
-    # future additional features
-    # "realtime",
 ]
 
 
@@ -181,6 +179,7 @@ LOGOUT_REDIRECT_URL = "/login/"
 GRAPHENE = {
     "SCHEMA": "backend.schema.schema",
     "MIDDLEWARE": [
+        "graphql_jwt.middleware.JSONWebTokenMiddleware",
         "middleware.graphql_middleware.GraphQLMiddleware",
     ],
 }
@@ -237,3 +236,7 @@ LOGGING = {
     },
 }
 
+AUTHENTICATION_BACKENDS = [
+    "graphql_jwt.backends.JSONWebTokenBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]

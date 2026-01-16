@@ -1,6 +1,6 @@
 #!/bin/sh
 
-OUTPUT="project_dump.txt"
+OUTPUT="project_dump_backend.txt"
 
 echo "==============================" > $OUTPUT
 echo "PROJECT COMMAND DUMP" >> $OUTPUT
