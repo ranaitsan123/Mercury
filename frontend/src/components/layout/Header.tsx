@@ -1,4 +1,4 @@
-import { Bell, Moon, Sun, LogOut } from "lucide-react";
+import { Bell, Moon, Sun, LogOut, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +32,15 @@ export default function Header() {
         <h2 className="text-xl font-bold text-foreground">AI Email Security Dashboard</h2>
       </div>
       <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/compose")}
+          title="Compose Message"
+        >
+          <Send className="h-5 w-5" />
+          <span className="sr-only">Compose Message</span>
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">

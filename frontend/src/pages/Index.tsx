@@ -16,6 +16,22 @@ import { emailService, EmailLog, Threat } from "@/services/email.service";
 import { toast } from "sonner";
 import { Graphism } from "@/lib/Graphism";
 import { animate, stagger } from "animejs";
+import { useQuery } from "@apollo/client/react";
+import { GET_MY_EMAILS } from "@/graphql/queries";
+
+interface MyEmailsData {
+    myEmails: {
+        id: string;
+        sender: string;
+        recipient: string;
+        subject: string;
+        createdAt: string;
+        scan?: {
+            result: string;
+            confidence: number;
+        };
+    }[];
+}
 
 export default function DashboardPage() {
     // Metrics State
@@ -35,16 +51,26 @@ export default function DashboardPage() {
     const [threatsHistory, setThreatsHistory] = React.useState<Array<{ date: string; threats: number }>>([]);
     const [isLoadingChart, setIsLoadingChart] = React.useState(true);
 
-    // Email Logs State
-    const [logs, setLogs] = React.useState<EmailLog[]>([]);
-    const [isLoadingLogs, setIsLoadingLogs] = React.useState(true);
-    const [totalPages, setTotalPages] = React.useState(0);
-    const [totalItems, setTotalItems] = React.useState(0);
+    // Folder State
+    const [selectedFolder, setSelectedFolder] = React.useState<"inbox" | "sent">("inbox");
     const [currentPage, setCurrentPage] = React.useState(1);
+    const itemsPerPage = 7;
+
+    // Email Logs State via useQuery
+    const {
+        data: emailData,
+        loading: isLoadingLogs,
+        error: emailError
+    } = useQuery<MyEmailsData>(GET_MY_EMAILS, {
+        variables: {
+            folder: selectedFolder,
+            limit: itemsPerPage,
+            offset: (currentPage - 1) * itemsPerPage
+        },
+    });
+
     const [searchTerm, setSearchTerm] = React.useState("");
     const [statusFilter, setStatusFilter] = React.useState<string[]>([]);
-
-    const itemsPerPage = 7;
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const graphismRef = React.useRef<Graphism | null>(null);
 
@@ -63,9 +89,6 @@ export default function DashboardPage() {
                 console.error("Graphism init error:", e);
             }
         }
-        return () => {
-            // Cleanup if needed
-        };
     }, []);
 
     // Animations
@@ -81,7 +104,6 @@ export default function DashboardPage() {
                 });
             } catch (e) {
                 console.error("AnimeJS error:", e);
-                // Fallback: manually set opacity if animation fails
                 document.querySelectorAll('.metric-card').forEach((el) => {
                     (el as HTMLElement).style.opacity = '1';
                 });
@@ -105,8 +127,6 @@ export default function DashboardPage() {
             });
         }
     }, []);
-
-
 
     // Fetch Metrics
     React.useEffect(() => {
@@ -152,35 +172,51 @@ export default function DashboardPage() {
         fetchData();
     }, []);
 
-    // Fetch Email Logs
-    React.useEffect(() => {
-        const fetchLogsData = async () => {
-            setIsLoadingLogs(true);
-            try {
-                const response = await emailService.getPaginatedLogs(
-                    currentPage,
-                    itemsPerPage,
-                    { searchTerm, statusFilter }
-                );
-                setLogs(response.data);
-                setTotalPages(Math.ceil(response.total / itemsPerPage));
-                setTotalItems(response.total);
-            } catch (error) {
-                console.error("Failed to fetch logs:", error);
-                toast.error("Log Error", {
-                    description: "Could not load email scan logs."
-                });
-            } finally {
-                setIsLoadingLogs(false);
-            }
-        };
-        fetchLogsData();
-    }, [searchTerm, statusFilter, currentPage]);
+    // Map GraphQL data to EmailLog format
+    const logs: EmailLog[] = React.useMemo(() => {
+        if (!emailData?.myEmails) return [];
+
+        return emailData.myEmails.map((email: any) => {
+            return {
+                ...email,
+                // If in sent folder, we show recipient in the 'sender' column for better UX
+                sender: selectedFolder === 'sent' ? email.recipient : email.sender,
+                // Ensure scan object exists for type safety
+                scan: email.scan || { result: "safe", confidence: 1.0 }
+            };
+        });
+    }, [emailData, selectedFolder]);
+
+    const filteredLogs = React.useMemo(() => {
+        let result = logs;
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(l => l.subject.toLowerCase().includes(term) || l.sender.toLowerCase().includes(term));
+        }
+        if (statusFilter.length > 0) {
+            result = result.filter(l => statusFilter.includes(l.scan?.result || ""));
+        }
+        return result;
+    }, [logs, searchTerm, statusFilter]);
+
+    const totalItems = filteredLogs.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const paginatedLogs = filteredLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     // Reset page on filter change
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, statusFilter]);
+    }, [searchTerm, statusFilter, selectedFolder]);
+
+    // Error handling for useQuery
+    React.useEffect(() => {
+        if (emailError) {
+            console.error("Failed to fetch emails via Apollo:", emailError);
+            toast.error("Query Error", {
+                description: "Failed to load messages. Please check your connection."
+            });
+        }
+    }, [emailError]);
 
     // Common Glassy Card Style
     const glassCardClass = "bg-background/60 backdrop-blur-xl border-accent/20 shadow-xl hover:shadow-2xl hover:border-accent/40 transition-all duration-300";
@@ -283,13 +319,27 @@ export default function DashboardPage() {
 
             <div className="mt-8 dashboard-section opacity-0">
                 <Card className={glassCardClass}>
-                    <CardHeader>
+                    <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle>Email Logs</CardTitle>
+                        <div className="flex bg-accent/20 rounded-full p-1 border border-accent/20">
+                            <button
+                                onClick={() => setSelectedFolder("inbox")}
+                                className={`px-4 py-1 rounded-full text-sm transition-all ${selectedFolder === "inbox" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                Inbox
+                            </button>
+                            <button
+                                onClick={() => setSelectedFolder("sent")}
+                                className={`px-4 py-1 rounded-full text-sm transition-all ${selectedFolder === "sent" ? "bg-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"}`}
+                            >
+                                Sent
+                            </button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <ErrorBoundary>
                             <EmailLogTable
-                                logs={logs}
+                                logs={paginatedLogs}
                                 isLoading={isLoadingLogs}
                                 totalItems={totalItems}
                                 totalPages={totalPages}
@@ -299,6 +349,7 @@ export default function DashboardPage() {
                                 onSearchChange={setSearchTerm}
                                 statusFilter={statusFilter}
                                 onStatusFilterChange={setStatusFilter}
+                                fromLabel={selectedFolder === 'sent' ? 'To' : 'From'}
                             />
                         </ErrorBoundary>
                     </CardContent>

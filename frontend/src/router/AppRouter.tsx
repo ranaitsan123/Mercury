@@ -2,6 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import Index from "@/pages/Index";
 import Login from "@/pages/Login";
 import Signup from "@/pages/Signup";
+import Compose from "@/pages/Compose";
 import NotFound from "@/pages/NotFound";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { PublicRoute } from "./PublicRoute";
@@ -23,6 +24,14 @@ export function AppRouter() {
                     <PublicRoute>
                         <Login />
                     </PublicRoute>
+                }
+            />
+            <Route
+                path="/compose"
+                element={
+                    <ProtectedRoute>
+                        <Compose />
+                    </ProtectedRoute>
                 }
             />
             <Route

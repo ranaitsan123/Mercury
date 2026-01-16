@@ -2,7 +2,7 @@ import { authService } from "@/services/auth.service";
 import { ACCESS_TOKEN_KEY } from "./constants";
 import { toast } from "sonner";
 
-const apiBase = import.meta.env.VITE_API_URL || "https://curly-engine-gwgjrqw7wqqh9x69-8000.app.github.dev/";
+import apiConfig from "@/config/apiConfig";
 
 interface FetchOptions extends RequestInit {
     headers?: Record<string, string>;
@@ -17,7 +17,8 @@ export const authenticatedFetch = async (endpoint: string, options: FetchOptions
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
-    const url = endpoint.startsWith("http") ? endpoint : `${apiBase}${endpoint}`;
+    const baseUrl = apiConfig.baseUrl;
+    const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}/${endpoint.replace(/^\//, "")}`;
 
     try {
         let response = await fetch(url, { ...options, headers });

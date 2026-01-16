@@ -1,9 +1,10 @@
 /**
  * Email Log Table Component (Controlled)
- * 
- * Refactored to accept all data and state via props.
- * This prepares it for GraphQL integration where the parent component
- * will manage the data fetching and state.
+ *
+ * Backend-compatible version
+ * - GraphQL-ready
+ * - Works with real scan results
+ * - UI preserved
  */
 
 import * as React from "react";
@@ -31,20 +32,26 @@ import { ListFilter, Search, Mail } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
-const STATUS_OPTIONS = ["Clean", "Suspicious", "Malicious"] as const;
+/* =========================
+   STATUS CONFIG
+========================= */
 
-const getStatusBadgeVariant = (status: EmailLog["status"]) => {
+const STATUS_OPTIONS = ["safe", "malicious"] as const;
+
+const getStatusBadgeVariant = (status?: string) => {
     switch (status) {
-        case "Clean":
+        case "safe":
             return "success";
-        case "Suspicious":
-            return "warning";
-        case "Malicious":
+        case "malicious":
             return "destructive";
         default:
             return "default";
     }
 };
+
+/* =========================
+   PROPS
+========================= */
 
 export interface EmailLogTableProps {
     logs: EmailLog[];
@@ -57,8 +64,13 @@ export interface EmailLogTableProps {
     onSearchChange: (search: string) => void;
     statusFilter: string[];
     onStatusFilterChange: (status: string[]) => void;
+    fromLabel?: string;
     className?: string;
 }
+
+/* =========================
+   COMPONENT
+========================= */
 
 export default function EmailLogTable({
     logs,
@@ -71,13 +83,14 @@ export default function EmailLogTable({
     onSearchChange,
     statusFilter,
     onStatusFilterChange,
+    fromLabel = "From",
     className,
 }: EmailLogTableProps) {
     const handleStatusFilterChange = (status: string, checked: boolean) => {
-        const nextFilter = checked
+        const next = checked
             ? [...statusFilter, status]
             : statusFilter.filter((s) => s !== status);
-        onStatusFilterChange(nextFilter);
+        onStatusFilterChange(next);
     };
 
     const handleClearFilters = () => {
@@ -89,6 +102,7 @@ export default function EmailLogTable({
 
     return (
         <div className={className}>
+            {/* FILTER BAR */}
             <div className="flex items-center gap-4 mb-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -100,6 +114,7 @@ export default function EmailLogTable({
                         onChange={(e) => onSearchChange(e.target.value)}
                     />
                 </div>
+
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="h-10 gap-1">
@@ -110,20 +125,24 @@ export default function EmailLogTable({
                             </span>
                         </Button>
                     </DropdownMenuTrigger>
+
                     <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
+                        <DropdownMenuLabel>Filter by scan result</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         {STATUS_OPTIONS.map((status) => (
                             <DropdownMenuCheckboxItem
                                 key={status}
                                 checked={statusFilter.includes(status)}
-                                onCheckedChange={(checked) => handleStatusFilterChange(status, checked)}
+                                onCheckedChange={(checked) =>
+                                    handleStatusFilterChange(status, checked)
+                                }
                             >
                                 {status}
                             </DropdownMenuCheckboxItem>
                         ))}
                     </DropdownMenuContent>
                 </DropdownMenu>
+
                 {hasActiveFilters && (
                     <Button variant="ghost" size="sm" onClick={handleClearFilters}>
                         Clear
@@ -131,6 +150,7 @@ export default function EmailLogTable({
                 )}
             </div>
 
+            {/* STATES */}
             {isLoading ? (
                 <div className="rounded-md border py-12">
                     <LoadingSpinner size="lg" />
@@ -139,11 +159,11 @@ export default function EmailLogTable({
                 <div className="rounded-md border">
                     <EmptyState
                         icon={Mail}
-                        title={hasActiveFilters ? "No emails found" : "No email logs available"}
+                        title={hasActiveFilters ? "No emails found" : "No emails available"}
                         description={
                             hasActiveFilters
-                                ? "Try adjusting your search or filters to find what you're looking for."
-                                : "Email logs will appear here once available."
+                                ? "Try adjusting your filters."
+                                : "Emails will appear here once received."
                         }
                         action={
                             hasActiveFilters ? (
@@ -156,30 +176,53 @@ export default function EmailLogTable({
                 </div>
             ) : (
                 <>
+                    {/* TABLE */}
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>From</TableHead>
+                                    <TableHead>{fromLabel}</TableHead>
                                     <TableHead>Subject</TableHead>
-                                    <TableHead className="hidden md:table-cell">Date/Time</TableHead>
+                                    <TableHead className="hidden md:table-cell">
+                                        Date / Time
+                                    </TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Confidence</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead className="text-right">
+                                        Confidence
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Actions
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
+
                             <TableBody>
                                 {logs.map((log) => (
                                     <TableRow key={log.id}>
-                                        <TableCell className="font-medium">{log.from}</TableCell>
+                                        <TableCell className="font-medium">
+                                            {log.sender}
+                                        </TableCell>
+
                                         <TableCell>{log.subject}</TableCell>
-                                        <TableCell className="hidden md:table-cell">{log.datetime}</TableCell>
+
+                                        <TableCell className="hidden md:table-cell">
+                                            {new Date(log.createdAt).toLocaleString()}
+                                        </TableCell>
+
                                         <TableCell>
-                                            <Badge variant={getStatusBadgeVariant(log.status)}>
-                                                {log.status}
+                                            <Badge
+                                                variant={getStatusBadgeVariant(log.scan?.result)}
+                                            >
+                                                {log.scan?.result ?? "unknown"}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right">{log.confidence}%</TableCell>
+
+                                        <TableCell className="text-right">
+                                            {log.scan?.confidence !== undefined
+                                                ? `${Math.round(log.scan.confidence * 100)}%`
+                                                : "N/A"}
+                                        </TableCell>
+
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="sm">
                                                 View Details
@@ -190,6 +233,8 @@ export default function EmailLogTable({
                             </TableBody>
                         </Table>
                     </div>
+
+                    {/* PAGINATION */}
                     <div className="flex items-center justify-between py-4">
                         <div className="text-sm text-muted-foreground">
                             Showing {logs.length} of {totalItems} results
@@ -198,7 +243,9 @@ export default function EmailLogTable({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
+                                onClick={() =>
+                                    onPageChange(Math.max(currentPage - 1, 1))
+                                }
                                 disabled={currentPage === 1}
                             >
                                 Previous
@@ -209,7 +256,11 @@ export default function EmailLogTable({
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
+                                onClick={() =>
+                                    onPageChange(
+                                        Math.min(currentPage + 1, totalPages)
+                                    )
+                                }
                                 disabled={currentPage === totalPages}
                             >
                                 Next

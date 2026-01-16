@@ -19,11 +19,16 @@ import {
 
 export type EmailLog = {
     id: string;
-    from: string;
+    sender: string;
+    recipient: string;
     subject: string;
-    datetime: string;
-    status: "Clean" | "Suspicious" | "Malicious";
-    confidence: number;
+    body?: string;
+    createdAt: string;
+    folder?: "inbox" | "sent";
+    scan?: {
+        result: "safe" | "malicious";
+        confidence?: number;
+    };
 };
 
 export type Threat = {
