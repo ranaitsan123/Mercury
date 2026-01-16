@@ -192,9 +192,23 @@ export const authService = {
 
     /**
      * Get stored token.
+     * Includes a migration check for the legacy "access" key.
      */
     getToken(): string | null {
-        return localStorage.getItem(ACCESS_TOKEN_KEY);
+        let token = localStorage.getItem(ACCESS_TOKEN_KEY);
+
+        // MIGRATION: Check for legacy key if canonical key is missing
+        if (!token) {
+            const legacyToken = localStorage.getItem("access");
+            if (legacyToken) {
+                token = legacyToken;
+                this.setToken(token);
+                localStorage.removeItem("access");
+                console.log("[AuthService] Migrated legacy token to access_token");
+            }
+        }
+
+        return token;
     },
 
     /**
@@ -209,6 +223,7 @@ export const authService = {
      */
     removeToken() {
         localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem("access"); // Clean up legacy key if exists
     },
 
     /**
@@ -244,6 +259,7 @@ export const authService = {
      * Check if user is authenticated locally.
      */
     isAuthenticated(): boolean {
+        // Must have auth state flag AND a valid token (under either key during transition)
         return localStorage.getItem(AUTH_STATE_KEY) === 'true' && !!this.getToken();
     }
 };
