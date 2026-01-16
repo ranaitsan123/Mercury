@@ -200,6 +200,7 @@ __init__.py
 admin.py
 apps.py
 interfaces.py
+management
 migrations
 mock_service.py
 models.py

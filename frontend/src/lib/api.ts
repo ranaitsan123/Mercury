@@ -2,7 +2,7 @@ import { authService } from "@/services/auth.service";
 import { ACCESS_TOKEN_KEY } from "./constants";
 import { toast } from "sonner";
 
-const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const apiBase = import.meta.env.VITE_API_URL || "https://curly-engine-gwgjrqw7wqqh9x69-8000.app.github.dev/";
 
 interface FetchOptions extends RequestInit {
     headers?: Record<string, string>;
