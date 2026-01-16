@@ -1,7 +1,7 @@
 import apiConfig from "@/config/apiConfig";
 
 
-export const ACCESS_TOKEN_KEY = "access";
+export const ACCESS_TOKEN_KEY = "access_token";
 export const REFRESH_TOKEN_KEY = "refresh";
 
 export const AUTH_STATE_KEY = "isAuthenticated";

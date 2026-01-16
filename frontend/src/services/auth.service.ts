@@ -184,8 +184,8 @@ export const authService = {
      * Clear session.
      */
     logout() {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        this.removeToken();
+        this.removeRefreshToken();
         localStorage.removeItem(AUTH_STATE_KEY);
         localStorage.removeItem(USER_PROFILE_KEY);
     },
@@ -205,6 +205,13 @@ export const authService = {
     },
 
     /**
+     * Remove stored token.
+     */
+    removeToken() {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+    },
+
+    /**
      * Get stored refresh token.
      */
     getRefreshToken(): string | null {
@@ -216,6 +223,13 @@ export const authService = {
      */
     setRefreshToken(token: string) {
         localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    },
+
+    /**
+     * Remove stored refresh token.
+     */
+    removeRefreshToken() {
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
     },
 
     /**
