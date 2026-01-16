@@ -26,7 +26,7 @@ export type EmailLog = {
     createdAt: string;
     folder?: "inbox" | "sent";
     scan?: {
-        result: "safe" | "malicious" | "clean" | "dangerous";
+        result: "safe" | "malicious";
         confidence?: number;
     };
 };
