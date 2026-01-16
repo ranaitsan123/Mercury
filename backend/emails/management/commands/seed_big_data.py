@@ -130,3 +130,7 @@ class Command(BaseCommand):
             result="malicious" if malicious else "safe",
             confidence=round(random.uniform(0.6, 0.99), 2),
         )
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3d965ce55f99ca93296ea953c0544f389ec92aa1

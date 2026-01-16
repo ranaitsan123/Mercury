@@ -184,31 +184,19 @@ export const authService = {
      * Clear session.
      */
     logout() {
-        this.removeToken();
-        this.removeRefreshToken();
+
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
         localStorage.removeItem(AUTH_STATE_KEY);
         localStorage.removeItem(USER_PROFILE_KEY);
     },
 
     /**
      * Get stored token.
-     * Includes a migration check for the legacy "access" key.
+
      */
     getToken(): string | null {
-        let token = localStorage.getItem(ACCESS_TOKEN_KEY);
-
-        // MIGRATION: Check for legacy key if canonical key is missing
-        if (!token) {
-            const legacyToken = localStorage.getItem("access");
-            if (legacyToken) {
-                token = legacyToken;
-                this.setToken(token);
-                localStorage.removeItem("access");
-                console.log("[AuthService] Migrated legacy token to access_token");
-            }
-        }
-
-        return token;
+        return localStorage.getItem(ACCESS_TOKEN_KEY);
     },
 
     /**
@@ -219,14 +207,8 @@ export const authService = {
     },
 
     /**
-     * Remove stored token.
-     */
-    removeToken() {
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem("access"); // Clean up legacy key if exists
-    },
 
-    /**
+
      * Get stored refresh token.
      */
     getRefreshToken(): string | null {
@@ -241,13 +223,7 @@ export const authService = {
     },
 
     /**
-     * Remove stored refresh token.
-     */
-    removeRefreshToken() {
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
-    },
 
-    /**
      * Get stored user profile.
      */
     getUserProfile(): any {
@@ -259,7 +235,7 @@ export const authService = {
      * Check if user is authenticated locally.
      */
     isAuthenticated(): boolean {
-        // Must have auth state flag AND a valid token (under either key during transition)
+
         return localStorage.getItem(AUTH_STATE_KEY) === 'true' && !!this.getToken();
     }
 };

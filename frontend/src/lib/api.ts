@@ -9,8 +9,8 @@ interface FetchOptions extends RequestInit {
 }
 
 export const authenticatedFetch = async (endpoint: string, options: FetchOptions = {}): Promise<Response> => {
-    const token = authService.getToken();
 
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
     const headers = {
         "Content-Type": "application/json",
         ...options.headers,
@@ -28,7 +28,7 @@ export const authenticatedFetch = async (endpoint: string, options: FetchOptions
             const refreshed = await authService.refreshToken();
             if (refreshed) {
                 // Retry with new token
-                const newToken = authService.getToken();
+       const newToken = localStorage.getItem(ACCESS_TOKEN_KEY);
                 if (newToken) {
                     headers.Authorization = `Bearer ${newToken}`;
                     response = await fetch(url, { ...options, headers });

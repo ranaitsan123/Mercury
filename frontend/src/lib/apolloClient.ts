@@ -1,4 +1,9 @@
-import { ApolloClient, InMemoryCache, createHttpLink, from } from "@apollo/client";
+import {
+    ApolloClient,
+    InMemoryCache,
+    createHttpLink,
+    from,
+} from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import { onError } from "@apollo/client/link/error";
 import { toast } from "sonner";
@@ -6,62 +11,84 @@ import { toast } from "sonner";
 import apiConfig from "@/config/apiConfig";
 import { authService } from "@/services/auth.service";
 
-/**
- * Apollo Client Setup
- * 
- * Configures the GraphQL client with authentication and error handling links.
- */
-
+/* =========================
+   HTTP LINK
+========================= */
 const httpLink = createHttpLink({
     uri: apiConfig.graphqlUrl,
+    credentials: "include",
 });
 
-/**
- * Auth Link: Injects the JWT Bearer token into the Authorization header.
- * Uses authService.getToken() which leverages the unified 'access_token' key.
- */
+/* =========================
+   AUTH LINK
+========================= */
 const authLink = setContext((_, { headers }) => {
     const token = authService.getToken();
 
     return {
         headers: {
             ...headers,
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            Authorization: token ? `Bearer ${token}` : "",
         },
     };
 });
 
-/**
- * Error Link: Handles GraphQL and Network errors globally.
- * Specifically redirects to login on 401 Unauthorized errors.
- */
-const errorLink = onError(({ graphQLErrors, networkError }: any) => {
-    if (graphQLErrors) {
-        graphQLErrors.forEach(err => {
-            console.error("[GraphQL error]:", err.message);
+/* =========================
+   ERROR LINK (TS-SAFE)
+========================= */
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+    let unauthorized = false;
 
-            // Handle explicit backend 'Authentication required' error in body
-            if (err.extensions?.code === "AUTH_REQUIRED" || err.message === "Authentication required") {
-                authService.logout();
-                window.location.href = "/login?expired=true";
+    if (graphQLErrors && graphQLErrors.length > 0) {
+        for (const err of graphQLErrors) {
+            console.error("[GraphQL error]", err.message);
+
+            if (
+                err.message === "Authentication required" ||
+                err.extensions?.code === "UNAUTHENTICATED"
+            ) {
+                unauthorized = true;
             }
-        });
+        }
     }
 
     if (networkError) {
-        const status = (networkError as any).statusCode;
+        const statusCode = (networkError as any)?.statusCode;
+        if (statusCode === 401) {
+            unauthorized = true;
+        }
+    }
 
-        if (status === 401) {
-            toast.error("Session expired", {
-                description: "Please login again."
-            });
-            authService.logout();
+    if (unauthorized) {
+        toast.error("Session expired", {
+            description: "Please login again.",
+        });
+
+        authService.logout();
+
+        if (window.location.pathname !== "/login") {
             window.location.href = "/login";
         }
     }
 });
 
+/* =========================
+   APOLLO CLIENT
+========================= */
 export const client = new ApolloClient({
     link: from([errorLink, authLink, httpLink]),
     cache: new InMemoryCache(),
+    defaultOptions: {
+        watchQuery: {
+            fetchPolicy: "network-only",
+            errorPolicy: "all",
+        },
+        query: {
+            fetchPolicy: "network-only",
+            errorPolicy: "all",
+        },
+        mutate: {
+            errorPolicy: "all",
+        },
+    },
 });
