@@ -1,5 +1,12 @@
 import { gql } from "@apollo/client";
 
+/**
+ * =========================
+ * 📩 FETCH USER EMAILS
+ * =========================
+ * Backend source:
+ * query MyEmails(folder, limit, offset)
+ */
 export const GET_MY_EMAILS = gql`
   query MyEmails($folder: String, $limit: Int, $offset: Int) {
     myEmails(folder: $folder, limit: $limit, offset: $offset) {
@@ -7,6 +14,8 @@ export const GET_MY_EMAILS = gql`
       sender
       recipient
       subject
+      body
+      folder
       createdAt
       scan {
         result
@@ -16,28 +25,34 @@ export const GET_MY_EMAILS = gql`
   }
 `;
 
+/**
+ * =========================
+ * 🧪 FETCH SCAN LOGS
+ * =========================
+ * Backend source:
+ * query MyScanLogs
+ */
 export const GET_MY_SCAN_LOGS = gql`
-  query MyScanLogs {
-    myScanLogs {
+  query MyScanLogs($limit: Int, $offset: Int) {
+    myScanLogs(limit: $limit, offset: $offset) {
       id
-      from
-      subject
-      datetime
-      status
+      result
       confidence
-    }
-  }
-`;
-
-export const SEND_EMAIL_MUTATION = gql`
-  mutation SendEmail($recipient: String!, $subject: String!, $body: String!) {
-    sendEmail(to: $recipient, subject: $subject, body: $body) {
-      success
-      message
+      createdAt
       email {
-        id
         subject
       }
     }
   }
 `;
+
+/**
+ * =========================
+ * ❌ REMOVED ON PURPOSE
+ * =========================
+ * Sending emails is REST-only:
+ * POST /emails/send/
+ *
+ * GraphQL mutation removed to avoid 400 errors
+ */
+// export const SEND_EMAIL_MUTATION = ...

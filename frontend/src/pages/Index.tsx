@@ -177,23 +177,12 @@ export default function DashboardPage() {
         if (!emailData?.myEmails) return [];
 
         return emailData.myEmails.map((email: any) => {
-            const hasScan = !!email.scan;
-            const res = email.scan?.result?.toLowerCase();
-
-            let status: EmailLog["status"] = "Clean";
-            if (hasScan) {
-                if (res === "dangerous" || res === "malicious") status = "Dangerous";
-                else if (res === "suspicious") status = "Suspicious";
-                else status = "Clean";
-            }
-
             return {
-                id: email.id,
-                from: selectedFolder === 'sent' ? email.recipient : email.sender,
-                subject: email.subject,
-                datetime: new Date(email.createdAt).toLocaleString(),
-                status: status,
-                confidence: email.scan?.confidence ?? (hasScan ? 100.0 : undefined)
+                ...email,
+                // If in sent folder, we show recipient in the 'sender' column for better UX
+                sender: selectedFolder === 'sent' ? email.recipient : email.sender,
+                // Ensure scan object exists for type safety
+                scan: email.scan || { result: "safe", confidence: 1.0 }
             };
         });
     }, [emailData, selectedFolder]);
@@ -202,10 +191,10 @@ export default function DashboardPage() {
         let result = logs;
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
-            result = result.filter(l => l.subject.toLowerCase().includes(term) || l.from.toLowerCase().includes(term));
+            result = result.filter(l => l.subject.toLowerCase().includes(term) || l.sender.toLowerCase().includes(term));
         }
         if (statusFilter.length > 0) {
-            result = result.filter(l => statusFilter.includes(l.status));
+            result = result.filter(l => statusFilter.includes(l.scan?.result || ""));
         }
         return result;
     }, [logs, searchTerm, statusFilter]);
