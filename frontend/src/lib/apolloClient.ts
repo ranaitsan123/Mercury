@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { authService } from "@/services/auth.service";
 
 // Create HTTP link to the GraphQL endpoint
-const apiBase = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const apiBase = import.meta.env.VITE_API_URL || "https://zany-space-goldfish-x5gxp77664v6hxpv-8000.app.github.dev/";
 const httpLink = createHttpLink({
     uri: `${apiBase}/graphql/`,
 });
