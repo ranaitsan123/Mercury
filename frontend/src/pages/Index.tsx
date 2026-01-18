@@ -9,10 +9,12 @@ import { ShieldCheck, ShieldX, ScanLine, Target } from "lucide-react";
 import ThreatsOverTimeChart from "@/components/dashboard/ThreatsOverTimeChart";
 import LatestThreats from "@/components/dashboard/LatestThreats";
 import EmailLogTable from "@/components/dashboard/EmailLogTable";
+import EmailDetailModal from "@/components/dashboard/EmailDetailModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { emailService, EmailLog, Threat } from "@/services/email.service";
+import { authService } from "@/services/auth.service";
 import { toast } from "sonner";
 import { Graphism } from "@/lib/Graphism";
 import { animate, stagger } from "animejs";
@@ -25,6 +27,7 @@ interface MyEmailsData {
         sender: string;
         recipient: string;
         subject: string;
+        body: string;
         createdAt: string;
         scan?: {
             result: string;
@@ -54,7 +57,7 @@ export default function DashboardPage() {
     // Folder State
     const [selectedFolder, setSelectedFolder] = React.useState<"inbox" | "sent">("inbox");
     const [currentPage, setCurrentPage] = React.useState(1);
-    const itemsPerPage = 7;
+    const itemsPerPage = 15;
 
     // Email Logs State via useQuery
     const {
@@ -64,8 +67,8 @@ export default function DashboardPage() {
     } = useQuery<MyEmailsData>(GET_MY_EMAILS, {
         variables: {
             folder: selectedFolder,
-            limit: itemsPerPage,
-            offset: (currentPage - 1) * itemsPerPage
+            limit: 100, // Fetch a larger batch for client-side pagination within the folder
+            offset: 0   // Fetch from start since we paginate locally for now
         },
     });
 
@@ -128,64 +131,94 @@ export default function DashboardPage() {
         }
     }, []);
 
-    // Fetch Metrics
-    React.useEffect(() => {
-        const fetchMetricsData = async () => {
-            setIsLoadingMetrics(true);
-            try {
-                const data = await emailService.getMetrics();
-                setMetrics(data);
-            } catch (error) {
-                console.error("Failed to fetch metrics:", error);
-                toast.error("Metrics Error", {
-                    description: "Could not load dashboard metrics."
-                });
-            } finally {
-                setIsLoadingMetrics(false);
-            }
-        };
-        fetchMetricsData();
+    // Unified data fetcher for metrics and threats
+    const refreshDashboardData = React.useCallback(async () => {
+        setIsLoadingMetrics(true);
+        setIsLoadingThreats(true);
+        setIsLoadingChart(true);
+        try {
+            const [metricsData, threatsData, historyData] = await Promise.all([
+                emailService.getMetrics(),
+                emailService.getLatestThreats(),
+                emailService.getThreatTrends()
+            ]);
+            setMetrics(metricsData);
+            setThreats(threatsData);
+            setThreatsHistory(historyData);
+        } catch (error) {
+            console.error("Failed to refresh dashboard data:", error);
+        } finally {
+            setIsLoadingMetrics(false);
+            setIsLoadingThreats(false);
+            setIsLoadingChart(false);
+        }
     }, []);
 
-    // Fetch Latest Threats and History
+    // Initial fetch
     React.useEffect(() => {
-        const fetchData = async () => {
-            setIsLoadingThreats(true);
-            setIsLoadingChart(true);
-            try {
-                const [threatsData, historyData] = await Promise.all([
-                    emailService.getLatestThreats(),
-                    emailService.getThreatTrends()
-                ]);
-                setThreats(threatsData);
-                setThreatsHistory(historyData);
-            } catch (error) {
-                console.error("Failed to fetch dashboard data:", error);
-                toast.error("Dashboard Error", {
-                    description: "Could not load current threats or history."
-                });
-            } finally {
-                setIsLoadingThreats(false);
-                setIsLoadingChart(false);
+        refreshDashboardData();
+    }, [refreshDashboardData]);
+
+    // Real-time reactivity: Refresh dashboard stats whenever new email data arrives via Apollo
+    React.useEffect(() => {
+        if (emailData?.myEmails) {
+            refreshDashboardData();
+        }
+    }, [emailData, refreshDashboardData]);
+
+    const [userEmail, setUserEmail] = React.useState<string | null>(null);
+
+    // Sync user profile on mount to ensure filtering works correctly
+    React.useEffect(() => {
+        const syncProfile = async () => {
+            const profile = await authService.getProfile();
+            if (profile?.email) {
+                setUserEmail(profile.email.toLowerCase().trim());
+            } else {
+                const cached = authService.getUserProfile();
+                if (cached?.email) {
+                    setUserEmail(cached.email.toLowerCase().trim());
+                }
             }
         };
-        fetchData();
+        syncProfile();
     }, []);
 
     // Map GraphQL data to EmailLog format
     const logs: EmailLog[] = React.useMemo(() => {
         if (!emailData?.myEmails) return [];
 
-        return emailData.myEmails.map((email: any) => {
-            return {
-                ...email,
-                // If in sent folder, we show recipient in the 'sender' column for better UX
-                sender: selectedFolder === 'sent' ? email.recipient : email.sender,
-                // Ensure scan object exists for type safety
-                scan: email.scan || { result: "safe", confidence: 1.0 }
-            };
-        });
-    }, [emailData, selectedFolder]);
+        // If we don't have the user's identity yet, we can't filter safely. 
+        // We'll fallback to showing all if identity is missing to avoid "blackout",
+        // but we prioritize identity-based strictly filtering when available.
+        const currentIdentity = userEmail;
+
+        return emailData.myEmails
+            .filter((email: any) => {
+                if (!currentIdentity) return true; // Show all if profile hasn't loaded yet
+
+                const sender = email.sender?.toLowerCase().trim();
+                const recipient = email.recipient?.toLowerCase().trim();
+
+                const isSentByMe = sender === currentIdentity;
+                const isReceivedByMe = recipient === currentIdentity;
+
+                // Strict Identity-Based Separation
+                if (selectedFolder === "sent") {
+                    return isSentByMe;
+                } else {
+                    return isReceivedByMe;
+                }
+            })
+            .map((email: any) => {
+                return {
+                    ...email,
+                    // Presentation: Show the "other" party
+                    sender: selectedFolder === 'sent' ? email.recipient : email.sender,
+                    scan: email.scan || { result: "safe", confidence: 1.0 }
+                };
+            });
+    }, [emailData, selectedFolder, userEmail]);
 
     const filteredLogs = React.useMemo(() => {
         let result = logs;
@@ -199,9 +232,10 @@ export default function DashboardPage() {
         return result;
     }, [logs, searchTerm, statusFilter]);
 
-    const totalItems = filteredLogs.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    const paginatedLogs = filteredLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const allLogs = filteredLogs;
+    const totalItems = allLogs.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+    const paginatedLogs = allLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     // Reset page on filter change
     React.useEffect(() => {
@@ -217,6 +251,31 @@ export default function DashboardPage() {
             });
         }
     }, [emailError]);
+
+    // Threat Viewing Logic
+    const [selectedEmailForModal, setSelectedEmailForModal] = React.useState<EmailLog | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
+
+    const handleViewThreat = (threat: Threat) => {
+        // Try to find the email in our logs
+        const email = logs.find(l => l.id === threat.id || (threat.emailId && l.id === threat.emailId));
+        if (email) {
+            setSelectedEmailForModal(email);
+            setIsDetailModalOpen(true);
+        } else {
+            // Reconstruct a full EmailLog from enriched Threat data
+            setSelectedEmailForModal({
+                id: threat.id,
+                subject: threat.subject,
+                sender: threat.from,
+                recipient: threat.recipient || "You",
+                createdAt: threat.emailCreatedAt || threat.datetime || new Date().toISOString(),
+                scan: { result: "malicious", confidence: threat.confidence },
+                body: threat.body || "No content available for this malicious email."
+            });
+            setIsDetailModalOpen(true);
+        }
+    };
 
     // Common Glassy Card Style
     const glassCardClass = "bg-background/60 backdrop-blur-xl border-accent/20 shadow-xl hover:shadow-2xl hover:border-accent/40 transition-all duration-300";
@@ -247,13 +306,13 @@ export default function DashboardPage() {
                                 title="Total Emails Scanned"
                                 value={metrics.totalScanned.toLocaleString()}
                                 icon={(props) => <div className="p-2 bg-primary/10 rounded-lg"><ScanLine {...props} className="h-4 w-4 text-primary" /></div>}
-                                description="Today"
+                                description="Real-time"
                                 className={glassCardClass}
                             />
                         </div>
                         <div className="metric-card">
                             <MetricCard
-                                title="Threats Blocked"
+                                title="Malicious Emails"
                                 value={metrics.threatsBlocked}
                                 icon={(props) => <div className="p-2 bg-red-500/10 rounded-lg"><ShieldX {...props} className="h-4 w-4 text-red-500" /></div>}
                                 description="Today"
@@ -265,7 +324,7 @@ export default function DashboardPage() {
                                 title="Clean Emails"
                                 value={metrics.cleanEmails.toLocaleString()}
                                 icon={(props) => <div className="p-2 bg-green-500/10 rounded-lg"><ShieldCheck {...props} className="h-4 w-4 text-green-500" /></div>}
-                                description="Today"
+                                description="Success"
                                 className={glassCardClass}
                             />
                         </div>
@@ -310,12 +369,21 @@ export default function DashboardPage() {
                             </Card>
                         ) : (
                             <div className={`h-full ${glassCardClass} rounded-xl overflow-hidden`}>
-                                <LatestThreats threats={threats} />
+                                <LatestThreats
+                                    threats={threats}
+                                    onView={handleViewThreat}
+                                />
                             </div>
                         )}
                     </ErrorBoundary>
                 </div>
             </div>
+
+            <EmailDetailModal
+                email={selectedEmailForModal}
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+            />
 
             <div className="mt-8 dashboard-section opacity-0">
                 <Card className={glassCardClass}>

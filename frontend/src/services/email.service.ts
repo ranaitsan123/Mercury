@@ -32,6 +32,8 @@ export type Threat = {
     type: string;
     from: string;
     datetime?: string;
+    confidence?: number;
+    emailId?: string;
 };
 
 /* =========================
@@ -112,19 +114,24 @@ export const emailService = {
         try {
             const result = await client.query<{ myScanLogs: any[] }>({
                 query: GET_MY_SCAN_LOGS,
-                variables: { limit: 10 },
+                variables: { limit: 100 }, // Fetch more to find the "critical" ones
                 fetchPolicy: "network-only"
             });
 
             const logs = result.data.myScanLogs || [];
             return logs
                 .filter((l: any) => l.result === "malicious")
+                // Sort by LOWEST confidence as requested by user ("most critical")
+                .sort((a, b) => (a.confidence || 0) - (b.confidence || 0))
+                .slice(0, 5)
                 .map((l: any) => ({
                     id: l.id,
                     subject: l.email?.subject || "No Subject",
-                    type: "Phishing", // Backend doesn't provide specific type, defaulting
-                    from: "Unknown",   // Backend ScanLog doesn't have sender, would need email fetch
-                    datetime: l.createdAt
+                    type: "Phishing",
+                    from: l.email?.sender || "Unknown",
+                    datetime: l.createdAt,
+                    confidence: l.confidence,
+                    emailId: l.email?.id // Assuming ID might be useful for "View"
                 }));
         } catch (error) {
             console.error("Failed to fetch latest threats:", error);
@@ -141,19 +148,26 @@ export const emailService = {
         try {
             const result = await client.query<{ myScanLogs: any[] }>({
                 query: GET_MY_SCAN_LOGS,
-                variables: { limit: 100 },
+                variables: { limit: 200 }, // Fetch more to cover a full week
                 fetchPolicy: "network-only"
             });
 
             const logs = result.data.myScanLogs || [];
             const trends: Record<string, number> = {};
 
+            // Initialize last 7 days with 0
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - i);
+                trends[date.toLocaleDateString()] = 0;
+            }
+
             logs.forEach((l: any) => {
-                const date = new Date(l.createdAt).toLocaleDateString();
-                if (l.result === "malicious") {
-                    trends[date] = (trends[date] || 0) + 1;
-                } else if (!trends[date]) {
-                    trends[date] = 0;
+                const logDate = new Date(l.createdAt).toLocaleDateString();
+                // Only count if it's within our 7-day range
+                if (trends[logDate] !== undefined && l.result === "malicious") {
+                    trends[logDate] += 1;
                 }
             });
 

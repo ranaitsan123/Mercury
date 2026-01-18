@@ -40,7 +40,12 @@ export const GET_MY_SCAN_LOGS = gql`
       confidence
       createdAt
       email {
+        id
         subject
+        sender
+        recipient
+        body
+        createdAt
       }
     }
   }

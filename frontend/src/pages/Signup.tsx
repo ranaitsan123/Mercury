@@ -104,9 +104,9 @@ export default function SignupPage() {
             />
 
             <Card className="w-full max-w-sm auth-card opacity-0 bg-background/60 backdrop-blur-xl border-accent/20 shadow-2xl">
-                <CardHeader className="space-y-1 flex flex-col items-center">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-2">
-                        <UserPlus className="h-6 w-6 text-primary" />
+                <CardHeader className="space-y-1 flex flex-col items-center pb-2">
+                    <div className="mb-4">
+                        <img src="/image.png" alt="Open Mercury Logo" className="h-16 w-auto rounded-lg shadow-lg border border-primary/20" />
                     </div>
                     <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
                     <CardDescription className="text-center">

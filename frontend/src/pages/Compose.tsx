@@ -6,7 +6,7 @@ import {
     CardDescription,
     CardFooter,
     CardHeader,
-    CardTitle
+    CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,36 @@ import { useNavigate } from "react-router-dom";
 import { Graphism } from "@/lib/Graphism";
 import { animate } from "animejs";
 import { toast } from "sonner";
+import { useMutation } from "@apollo/client/react";
 
-import { authenticatedFetch } from "@/lib/api";
+import { SEND_EMAIL_MUTATION } from "@/graphql/mutations";
+
+/* =========================
+   TYPES (MATCH GRAPHQL)
+========================= */
+interface SendEmailResponse {
+    sendEmail: {
+        email: {
+            id: string;
+            sender: string;
+            recipient: string;
+            subject: string;
+            body: string;
+            folder: string;
+            createdAt: string;
+            scan: {
+                result: string;
+                confidence: number;
+            };
+        };
+    };
+}
+
+interface SendEmailVariables {
+    to: string;
+    subject: string;
+    body: string;
+}
 
 export default function ComposePage() {
     const navigate = useNavigate();
@@ -26,43 +54,65 @@ export default function ComposePage() {
     const [recipient, setRecipient] = React.useState("");
     const [subject, setSubject] = React.useState("");
     const [body, setBody] = React.useState("");
-    const [isSending, setIsSending] = React.useState(false);
 
     const canvasRef = React.useRef<HTMLCanvasElement>(null);
     const graphismRef = React.useRef<Graphism | null>(null);
 
-    // Init background animation
+    const [sendEmail, { loading }] = useMutation<
+        SendEmailResponse,
+        SendEmailVariables
+    >(SEND_EMAIL_MUTATION, {
+        onCompleted: (data) => {
+            const email = data.sendEmail.email;
+            const scan = email.scan;
+
+            toast.success("Message Sent", {
+                description: `AI Scan: ${scan.result} (${Math.round(
+                    scan.confidence * 100
+                )}%)`,
+            });
+
+            setRecipient("");
+            setSubject("");
+            setBody("");
+
+            setTimeout(() => navigate("/"), 800);
+        },
+        onError: (error) => {
+            toast.error("Send failed", {
+                description: error.message,
+            });
+        },
+    });
+
+    /* =========================
+       EFFECTS
+    ========================= */
     React.useEffect(() => {
         if (canvasRef.current && !graphismRef.current) {
-            try {
-                graphismRef.current = new Graphism({
-                    canvas: canvasRef.current,
-                    particleCount: 60,
-                    connectionDistance: 150,
-                    mouseDistance: 200,
-                    color: "99, 102, 241",
-                });
-            } catch (e) {
-                console.error("Graphism init error:", e);
-            }
-        }
-    }, []);
-
-    // Card animation
-    React.useEffect(() => {
-        try {
-            animate(".compose-card", {
-                translateY: [20, 0],
-                opacity: [0, 1],
-                easing: "easeOutExpo",
-                duration: 800,
-                delay: 100,
+            graphismRef.current = new Graphism({
+                canvas: canvasRef.current,
+                particleCount: 60,
+                connectionDistance: 150,
+                mouseDistance: 200,
+                color: "99, 102, 241",
             });
-        } catch (e) {
-            console.error("AnimeJS error:", e);
         }
     }, []);
 
+    React.useEffect(() => {
+        animate(".compose-card", {
+            translateY: [20, 0],
+            opacity: [0, 1],
+            easing: "easeOutExpo",
+            duration: 800,
+            delay: 100,
+        });
+    }, []);
+
+    /* =========================
+       HANDLERS
+    ========================= */
     const handleClear = () => {
         setRecipient("");
         setSubject("");
@@ -74,46 +124,17 @@ export default function ComposePage() {
         e.preventDefault();
 
         if (!recipient.includes("@")) {
-            toast.error("Invalid recipient", {
-                description: "Please enter a valid email address.",
-            });
+            toast.error("Invalid recipient");
             return;
         }
 
-        setIsSending(true);
-
-        try {
-            const response = await authenticatedFetch("/emails/send/", {
-                method: "POST",
-                body: JSON.stringify({
-                    to: recipient,
-                    subject,
-                    body,
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data?.error || "Failed to send email");
-            }
-
-            toast.success("Message Sent", {
-                description: "Your message has been delivered securely.",
-            });
-
-            setRecipient("");
-            setSubject("");
-            setBody("");
-
-            setTimeout(() => navigate("/"), 800);
-        } catch (error: any) {
-            toast.error("Send failed", {
-                description: error.message || "Could not connect to backend",
-            });
-        } finally {
-            setIsSending(false);
-        }
+        await sendEmail({
+            variables: {
+                to: recipient,
+                subject,
+                body,
+            },
+        });
     };
 
     const glassCardClass =
@@ -130,7 +151,7 @@ export default function ComposePage() {
                 <div className="flex items-center justify-between mb-8">
                     <Button
                         variant="ghost"
-                        className="gap-2 hover:bg-accent/20"
+                        className="gap-2"
                         onClick={() => navigate("/")}
                     >
                         <ArrowLeft className="h-4 w-4" />
@@ -141,104 +162,76 @@ export default function ComposePage() {
                         variant="outline"
                         size="sm"
                         onClick={handleClear}
-                        className="bg-background/20 backdrop-blur-sm"
                     >
                         <Eraser className="h-4 w-4 mr-2" />
                         Clear Draft
                     </Button>
                 </div>
 
-                <Card
-                    className={`compose-card opacity-0 ${glassCardClass} overflow-hidden`}
-                >
-                    <CardHeader className="border-b border-border/40 bg-accent/5">
-                        <CardTitle className="text-xl font-bold flex items-center gap-2">
+                <Card className={`compose-card opacity-0 ${glassCardClass}`}>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
                             <Send className="h-5 w-5 text-primary" />
                             New Message
                         </CardTitle>
                         <CardDescription>
-                            All outgoing messages are scanned by AI before delivery
+                            Emails are AI-scanned before delivery
                         </CardDescription>
                     </CardHeader>
 
                     <form onSubmit={handleSubmit}>
                         <CardContent className="p-0">
                             <div className="flex flex-col">
-                                <div className="flex items-center px-6 py-3 border-b border-border/40 gap-3">
-                                    <Label
-                                        htmlFor="recipient"
-                                        className="text-muted-foreground w-12"
-                                    >
-                                        To
-                                    </Label>
+                                <div className="flex items-center px-6 py-3 border-b gap-3">
+                                    <Label className="w-12">To</Label>
                                     <Input
-                                        id="recipient"
                                         type="email"
-                                        placeholder="recipient@example.com"
-                                        className="border-none bg-transparent shadow-none focus-visible:ring-0 px-0"
                                         required
                                         value={recipient}
                                         onChange={(e) =>
                                             setRecipient(e.target.value)
                                         }
-                                        disabled={isSending}
+                                        disabled={loading}
+                                        className="border-none bg-transparent"
                                     />
                                 </div>
 
-                                <div className="flex items-center px-6 py-3 border-b border-border/40 gap-3">
-                                    <Label
-                                        htmlFor="subject"
-                                        className="text-muted-foreground w-12"
-                                    >
-                                        Subject
-                                    </Label>
+                                <div className="flex items-center px-6 py-3 border-b gap-3">
+                                    <Label className="w-12">Subject</Label>
                                     <Input
-                                        id="subject"
-                                        placeholder="Security Analysis Result"
-                                        className="border-none bg-transparent shadow-none focus-visible:ring-0 px-0"
                                         required
                                         value={subject}
                                         onChange={(e) =>
                                             setSubject(e.target.value)
                                         }
-                                        disabled={isSending}
+                                        disabled={loading}
+                                        className="border-none bg-transparent"
                                     />
                                 </div>
 
                                 <div className="p-6">
                                     <Textarea
-                                        id="body"
-                                        placeholder="Start typing your secure message..."
-                                        className="min-h-[400px] border-none bg-transparent shadow-none focus-visible:ring-0 resize-none p-0 leading-relaxed text-base"
                                         required
                                         value={body}
                                         onChange={(e) =>
                                             setBody(e.target.value)
                                         }
-                                        disabled={isSending}
+                                        disabled={loading}
+                                        className="min-h-[400px] border-none bg-transparent resize-none"
                                     />
                                 </div>
                             </div>
                         </CardContent>
 
-                        <CardFooter className="flex items-center justify-between px-6 py-4 border-t border-border/40 bg-accent/5">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="text-muted-foreground"
-                            >
+                        <CardFooter className="flex justify-between border-t px-6 py-4">
+                            <Button type="button" variant="ghost" size="icon">
                                 <Paperclip className="h-5 w-5" />
                             </Button>
 
-                            <Button
-                                type="submit"
-                                className="gap-2 px-6 shadow-lg shadow-primary/20"
-                                disabled={isSending}
-                            >
-                                {isSending ? "Sending..." : (
+                            <Button type="submit" disabled={loading}>
+                                {loading ? "Sending..." : (
                                     <>
-                                        <Send className="h-4 w-4" />
+                                        <Send className="h-4 w-4 mr-2" />
                                         Send Securely
                                     </>
                                 )}

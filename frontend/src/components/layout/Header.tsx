@@ -22,10 +22,10 @@ export default function Header() {
 
   return (
     <header className="flex h-16 items-center border-b border-border/40 bg-background/60 px-4 md:px-6 sticky top-0 z-30 backdrop-blur-xl">
-      <div className="flex items-center gap-4">
-        <img src="https://mgx-backend-cdn.metadl.com/generate/images/761500/2025-12-27/0bbfa984-7dc5-4dd4-a9e8-38afbcc957d1.png" alt="Logo" className="h-8 w-8" />
-        <h1 className="text-lg font-semibold text-foreground/90 hidden md:block">
-          Intelligent Mail Server
+      <div className="flex items-center gap-3">
+        <img src="/image.png" alt="Open Mercury Logo" className="h-10 w-auto rounded-md" />
+        <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent hidden md:block">
+          Open Mercury
         </h1>
       </div>
       <div className="flex-1 text-center">

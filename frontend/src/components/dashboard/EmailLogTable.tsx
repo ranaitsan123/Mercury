@@ -31,6 +31,7 @@ import { EmailLog } from "@/services/email.service";
 import { ListFilter, Search, Mail } from "lucide-react";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import EmailDetailModal from "./EmailDetailModal";
 
 /* =========================
    STATUS CONFIG
@@ -86,6 +87,8 @@ export default function EmailLogTable({
     fromLabel = "From",
     className,
 }: EmailLogTableProps) {
+    const [selectedEmail, setSelectedEmail] = React.useState<EmailLog | null>(null);
+
     const handleStatusFilterChange = (status: string, checked: boolean) => {
         const next = checked
             ? [...statusFilter, status]
@@ -224,7 +227,11 @@ export default function EmailLogTable({
                                         </TableCell>
 
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setSelectedEmail(log)}
+                                            >
                                                 View Details
                                             </Button>
                                         </TableCell>
@@ -269,6 +276,12 @@ export default function EmailLogTable({
                     </div>
                 </>
             )}
+
+            <EmailDetailModal
+                email={selectedEmail}
+                isOpen={!!selectedEmail}
+                onClose={() => setSelectedEmail(null)}
+            />
         </div>
     );
 }
