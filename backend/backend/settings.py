@@ -23,7 +23,6 @@ SECRET_KEY = os.environ.get(
 )
 
 DEBUG = True
-
 ALLOWED_HOSTS = ["*"]
 
 
@@ -47,7 +46,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "drf_yasg",
     "graphene_django",
-    "graphql_jwt",  # ✅ ADD THIS
+    "graphql_jwt",
 
     # Local apps
     "users",
@@ -67,7 +66,6 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-
     "django.contrib.auth.middleware.AuthenticationMiddleware",
 
     # Custom gateway logic
@@ -105,7 +103,7 @@ TEMPLATES = [
 
 
 # =====================
-# WSGI (HTTP ONLY)
+# WSGI
 # =====================
 WSGI_APPLICATION = "backend.wsgi.application"
 
@@ -168,7 +166,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
 
@@ -179,7 +176,6 @@ LOGOUT_REDIRECT_URL = "/login/"
 GRAPHENE = {
     "SCHEMA": "backend.schema.schema",
     "MIDDLEWARE": [
-        # "graphql_jwt.middleware.JSONWebTokenMiddleware",
         "middleware.graphql_middleware.GraphQLMiddleware",
     ],
 }
@@ -188,21 +184,15 @@ GRAPHENE = {
 # =====================
 # CORS CONFIGURATION
 # =====================
-
-# DEV MODE (browser access allowed from anywhere)
 CORS_ALLOW_ALL_ORIGINS = True
-
-# Allow cookies / Authorization headers
 CORS_ALLOW_CREDENTIALS = True
-
-# Explicitly allow JWT Authorization header
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
 
 # =====================
-# LOGGING
+# LOGGING  ✅ FIXED
 # =====================
 LOGGING = {
     "version": 1,
@@ -222,24 +212,60 @@ LOGGING = {
         }
     },
 
+    # Root logger: catches EVERYTHING
     "root": {
         "handlers": ["console"],
-        "level": "INFO",
+        "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
     },
 
     "loggers": {
+        # Django internals
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+
+        # Your middleware logger
         "gateway_logger": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
-        }
+        },
+
+        # ✅ ALL scanner modules
+        "scanner": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+
+        # ✅ ALL emails modules
+        "emails": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+
+        # Requests (useful for debugging routing)
+        "requests": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
 }
 
+# =====================
+# AUTH BACKENDS
+# =====================
 AUTHENTICATION_BACKENDS = [
-    # "graphql_jwt.backends.JSONWebTokenBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
-ML_SCANNER_URL = "http://ml_scanner:8000/scan"
-USE_MOCK_SCANNER = False
+
+# =====================
+# ML / SCANNER CONFIG
+# =====================
+ML_SCANNER_URL = os.environ.get("REAL_AISCANNER_URL")
+USE_MOCK_SCANNER = os.environ.get("USE_MOCK_SCANNER", "false").lower() == "true"

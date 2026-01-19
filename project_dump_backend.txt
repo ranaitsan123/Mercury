@@ -19,6 +19,9 @@ project_dump_backend.txt
 project_dump_frontend.txt
 
 $ cat .env docker-compose.yml
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
+DEBUG=1
+
 DJANGO_SUPERUSER_USERNAME=admin
 DJANGO_SUPERUSER_PASSWORD=admin123
 DJANGO_SUPERUSER_EMAIL=admin@example.com
@@ -32,11 +35,11 @@ POSTGRES_PORT=5432
 DJANGO_SECRET_KEY=supersecret123
 
 REAL_MAILSERVER_URL=http://mailserver:8080/send
-REAL_AISCANNER_URL=http://aiscanner:5000/scan
+REAL_AISCANNER_URL=http://ml_scanner:8000/scan
+SCANNER_API_KEY=super-secret-key
 USE_REAL_SERVICES=auto
 
-SCANNER_API_KEY=super-secret-key
-
+DJANGO_LOG_LEVEL=INFO
 version: '3.9'
 
 services:
@@ -51,6 +54,7 @@ services:
       - .env
     depends_on:
       - db
+      - ml_scanner
 
   db:
     image: postgres:16
@@ -63,15 +67,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-  
+
   redis:
     image: redis:7
+    container_name: redis
     ports:
       - "6379:6379"
 
   ml_scanner:
     build: ./ai_scanner
     container_name: ml_scanner
+    env_file:
+      - .env
     ports:
       - "8001:8000"
 
@@ -434,9 +441,13 @@ class EmailCreationService:
 
         # 3️⃣ Scan (ALWAYS)
         if service_route["scanner"] == "real":
-            scan = try_real_scan(body)
+            scan = try_real_scan({
+                "subject": subject,
+                "body": body,
+            })
         else:
             scan = mock_service.scan_email(body)
+
 
         # 4️⃣ Persist ScanLog (ONE-TO-ONE)
         ScanLog.objects.create(
@@ -637,7 +648,6 @@ migrations
 models.py
 schema.py
 service_selector.py
-services.py
 signals.py
 tests.py
 urls.py
@@ -764,64 +774,57 @@ class Query(graphene.ObjectType):
         )
 import os
 import requests
+import logging
 from emails.mock_service import mock_service
 
-import logging
 logger = logging.getLogger(__name__)
 
 MAILSERVER_URL = os.getenv("REAL_MAILSERVER_URL")
 SCANNER_URL = os.getenv("REAL_AISCANNER_URL")
-USE_REAL = os.getenv("USE_REAL_SERVICES", "false").lower() == "true"
+API_KEY = os.getenv("SCANNER_API_KEY")
 
+MODE = os.getenv("USE_REAL_SERVICES", "false").lower()
+USE_REAL = MODE in ("true", "auto")
 
 def try_real_send_email(data):
-        if not USE_REAL:
-                logger.warning("Real email service disabled. Using mock.")
-                return mock_service.send_email(**data)
+    if not USE_REAL:
+        logger.warning("🟡 Using MOCK mail sender")
+        return mock_service.send_email(**data)
 
-        try:
-                logger.info(f"Trying real mail server at {MAILSERVER_URL}")
-                response = requests.post(MAILSERVER_URL, json=data, timeout=3)
-                response.raise_for_status()
-                return response.json()
-
-        except Exception as e:
-                logger.error(f"Real mail server DOWN: {e}. Falling back to mock.")
-                return mock_service.send_email(**data)
-
-
-def try_real_scan(body):
-        if not USE_REAL:
-                logger.warning("Real AI scanner disabled. Using mock.")
-                return mock_service.scan_email(body)
-
-        try:
-                logger.info(f"Trying real scanner at {SCANNER_URL}")
-                response = requests.post(SCANNER_URL, json={"body": body}, timeout=3)
-                response.raise_for_status()
-                return response.json()
-
-        except Exception as e:
-                logger.error(f"AI scanner DOWN: {e}. Falling back to mock.")
-                return mock_service.scan_email(body)
-# scanner/services.py
-import requests
-from django.conf import settings
-
-def scan_email(subject: str, body: str):
     try:
+        logger.info("🟢 Using REAL mail server")
+        response = requests.post(MAILSERVER_URL, json=data, timeout=3)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        logger.error(f"🔴 Mail server error, using MOCK sender: {e}")
+        return mock_service.send_email(**data)
+
+def try_real_scan(content):
+    """
+    content = {
+        "subject": str,
+        "body": str
+    }
+    """
+    if not USE_REAL:
+        logger.warning("🟡 Falling back to MOCK scanner (USE_REAL is False)")
+        return mock_service.scan_email(content["body"])
+
+    try:
+        logger.info("🟢 Using REAL ML scanner")
         response = requests.post(
-            settings.ML_SCANNER_URL,
-            json={"subject": subject, "body": body},
-            timeout=3
+            SCANNER_URL,
+            json=content,
+            headers={"X-API-KEY": API_KEY},
+            timeout=3,
         )
         response.raise_for_status()
         return response.json()
-    except Exception:
-        if settings.USE_MOCK_SCANNER:
-            from scanner.mock_scanner import mock_scan
-            return mock_scan(subject, body)
-        raise
+
+    except Exception as e:
+        logger.error(f"🔴 Scanner error, falling back to MOCK scanner: {e}")
+        return mock_service.scan_email(content["body"])
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -1969,7 +1972,6 @@ SECRET_KEY = os.environ.get(
 )
 
 DEBUG = True
-
 ALLOWED_HOSTS = ["*"]
 
 
@@ -1993,7 +1995,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "drf_yasg",
     "graphene_django",
-    "graphql_jwt",  # ✅ ADD THIS
+    "graphql_jwt",
 
     # Local apps
     "users",
@@ -2013,7 +2015,6 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-
     "django.contrib.auth.middleware.AuthenticationMiddleware",
 
     # Custom gateway logic
@@ -2051,7 +2052,7 @@ TEMPLATES = [
 
 
 # =====================
-# WSGI (HTTP ONLY)
+# WSGI
 # =====================
 WSGI_APPLICATION = "backend.wsgi.application"
 
@@ -2114,7 +2115,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
 
@@ -2125,7 +2125,6 @@ LOGOUT_REDIRECT_URL = "/login/"
 GRAPHENE = {
     "SCHEMA": "backend.schema.schema",
     "MIDDLEWARE": [
-        # "graphql_jwt.middleware.JSONWebTokenMiddleware",
         "middleware.graphql_middleware.GraphQLMiddleware",
     ],
 }
@@ -2134,21 +2133,15 @@ GRAPHENE = {
 # =====================
 # CORS CONFIGURATION
 # =====================
-
-# DEV MODE (browser access allowed from anywhere)
 CORS_ALLOW_ALL_ORIGINS = True
-
-# Allow cookies / Authorization headers
 CORS_ALLOW_CREDENTIALS = True
-
-# Explicitly allow JWT Authorization header
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
 
 # =====================
-# LOGGING
+# LOGGING  ✅ FIXED
 # =====================
 LOGGING = {
     "version": 1,
@@ -2168,27 +2161,63 @@ LOGGING = {
         }
     },
 
+    # Root logger: catches EVERYTHING
     "root": {
         "handlers": ["console"],
-        "level": "INFO",
+        "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
     },
 
     "loggers": {
+        # Django internals
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+
+        # Your middleware logger
         "gateway_logger": {
             "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
-        }
+        },
+
+        # ✅ ALL scanner modules
+        "scanner": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+
+        # ✅ ALL emails modules
+        "emails": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+
+        # Requests (useful for debugging routing)
+        "requests": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
 }
 
+# =====================
+# AUTH BACKENDS
+# =====================
 AUTHENTICATION_BACKENDS = [
-    # "graphql_jwt.backends.JSONWebTokenBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
-ML_SCANNER_URL = "http://ml_scanner:8000/scan"
-USE_MOCK_SCANNER = False
+
+# =====================
+# ML / SCANNER CONFIG
+# =====================
+ML_SCANNER_URL = os.environ.get("REAL_AISCANNER_URL")
+USE_MOCK_SCANNER = os.environ.get("USE_MOCK_SCANNER", "false").lower() == "true"
 from django.contrib import admin
 from django.urls import path, include
 from django.views.decorators.csrf import csrf_exempt

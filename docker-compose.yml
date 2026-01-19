@@ -12,6 +12,7 @@ services:
       - .env
     depends_on:
       - db
+      - ml_scanner
 
   db:
     image: postgres:16
@@ -24,15 +25,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-  
+
   redis:
     image: redis:7
+    container_name: redis
     ports:
       - "6379:6379"
 
   ml_scanner:
     build: ./ai_scanner
     container_name: ml_scanner
+    env_file:
+      - .env
     ports:
       - "8001:8000"
 
