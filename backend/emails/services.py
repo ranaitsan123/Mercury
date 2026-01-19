@@ -43,9 +43,13 @@ class EmailCreationService:
 
         # 3️⃣ Scan (ALWAYS)
         if service_route["scanner"] == "real":
-            scan = try_real_scan(body)
+            scan = try_real_scan({
+                "subject": subject,
+                "body": body,
+            })
         else:
             scan = mock_service.scan_email(body)
+
 
         # 4️⃣ Persist ScanLog (ONE-TO-ONE)
         ScanLog.objects.create(

@@ -240,3 +240,6 @@ AUTHENTICATION_BACKENDS = [
     # "graphql_jwt.backends.JSONWebTokenBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+ML_SCANNER_URL = "http://ml_scanner:8000/scan"
+USE_MOCK_SCANNER = False

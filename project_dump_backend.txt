@@ -15,7 +15,6 @@ frontend
 listing_backend.sh
 listing_frontend.sh
 mailserver
-project_dump.txt
 project_dump_backend.txt
 project_dump_frontend.txt
 
@@ -69,6 +68,12 @@ services:
     image: redis:7
     ports:
       - "6379:6379"
+
+  ml_scanner:
+    build: ./ai_scanner
+    container_name: ml_scanner
+    ports:
+      - "8001:8000"
 
 volumes:
   postgres_data:
@@ -799,6 +804,24 @@ def try_real_scan(body):
         except Exception as e:
                 logger.error(f"AI scanner DOWN: {e}. Falling back to mock.")
                 return mock_service.scan_email(body)
+# scanner/services.py
+import requests
+from django.conf import settings
+
+def scan_email(subject: str, body: str):
+    try:
+        response = requests.post(
+            settings.ML_SCANNER_URL,
+            json={"subject": subject, "body": body},
+            timeout=3
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        if settings.USE_MOCK_SCANNER:
+            from scanner.mock_scanner import mock_scan
+            return mock_scan(subject, body)
+        raise
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -2163,6 +2186,9 @@ AUTHENTICATION_BACKENDS = [
     # "graphql_jwt.backends.JSONWebTokenBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+ML_SCANNER_URL = "http://ml_scanner:8000/scan"
+USE_MOCK_SCANNER = False
 from django.contrib import admin
 from django.urls import path, include
 from django.views.decorators.csrf import csrf_exempt

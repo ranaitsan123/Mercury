@@ -30,5 +30,11 @@ services:
     ports:
       - "6379:6379"
 
+  ml_scanner:
+    build: ./ai_scanner
+    container_name: ml_scanner
+    ports:
+      - "8001:8000"
+
 volumes:
   postgres_data:
