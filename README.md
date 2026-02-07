@@ -1,5 +1,7 @@
 # Mercury - Intelligent Mail Server
 
+<img width="200" height="250" alt="Logo" src="https://github.com/user-attachments/assets/d13a5d33-f2f1-40cd-b432-eeff9397b47e" />
+
 An **Intelligent Mail Server** is a secure, modular email platform that combines a modern web interface, a robust backend, and a Machine Learning–based scanner to enhance email security (spam/phishing/malware detection) while maintaining scalability and clean architecture.
 
 This project was designed with a strong focus on **architecture**, **security**, and **future extensibility**, making it suitable for academic projects, demonstrations, and real-world evolution.
