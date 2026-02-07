@@ -1,0 +1,1363 @@
+==============================
+PROJECT COMMAND DUMP
+==============================
+
+$ cd frontend
+$ ls
+README.md
+components.json
+doc
+eslint.config.js
+index.html
+node_modules
+package-lock.json
+package.json
+pnpm-lock.yaml
+postcss.config.js
+public
+src
+tailwind.config.js
+tsconfig.app.json
+tsconfig.app.tsbuildinfo
+tsconfig.json
+tsconfig.node.json
+vite.config.ts
+
+$ ls src
+App.css
+App.tsx
+assets
+components
+config
+graphql
+index.css
+lib
+main.tsx
+pages
+router
+services
+vite-env.d.ts
+
+$ ls src/components
+dashboard
+layout
+ui
+
+$ ls src/lib
+Graphism.ts
+api.ts
+apolloClient.ts
+auth.ts
+constants.ts
+data.ts
+mockData.ts
+types.ts
+utils.ts
+
+$ cat src/lib/*
+export interface GraphismOptions {
+    canvas: HTMLCanvasElement;
+    canvasWidth?: number;
+    canvasHeight?: number;
+    particleCount?: number;
+    connectionDistance?: number;
+    mouseDistance?: number;
+    color?: string;
+}
+
+interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+}
+
+export class Graphism {
+    private canvas: HTMLCanvasElement;
+    private ctx: CanvasRenderingContext2D;
+    private width: number = 0;
+    private height: number = 0;
+    private particles: Particle[] = [];
+    private options: Required<Omit<GraphismOptions, 'canvas'>>;
+    private animationId: number | null = null;
+    private mousePromise: { x: number; y: number } | null = null;
+
+    constructor(options: GraphismOptions) {
+        this.canvas = options.canvas;
+        this.ctx = this.canvas.getContext('2d')!;
+        this.options = {
+            canvasWidth: window.innerWidth,
+            canvasHeight: window.innerHeight,
+            particleCount: 80,
+            connectionDistance: 150,
+            mouseDistance: 200,
+            color: '100, 116, 139', // Slate-500 equivalent
+            ...options
+        };
+
+        this.resize(this.options.canvasWidth, this.options.canvasHeight);
+        this.initParticles();
+        this.setupEventListeners();
+        this.animate();
+    }
+
+    private setupEventListeners() {
+        window.addEventListener('resize', this.handleResize);
+        window.addEventListener('mousemove', this.handleMouseMove);
+    }
+
+    private handleResize = () => {
+        this.resize(window.innerWidth, window.innerHeight);
+        this.initParticles(); // Re-init to fill new space
+    };
+
+    private handleMouseMove = (e: MouseEvent) => {
+        this.mousePromise = { x: e.clientX, y: e.clientY };
+    };
+
+    private resize(width: number, height: number) {
+        this.width = width;
+        this.height = height;
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.canvas.style.width = `${width}px`;
+        this.canvas.style.height = `${height}px`;
+    }
+
+    private initParticles() {
+        this.particles = [];
+        const count = Math.floor((this.width * this.height) / 15000); // Responsive count
+        const particleCount = Math.min(count, this.options.particleCount * 2);
+
+        for (let i = 0; i < particleCount; i++) {
+            this.particles.push({
+                x: Math.random() * this.width,
+                y: Math.random() * this.height,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                size: Math.random() * 2 + 1
+            });
+        }
+    }
+
+    private drawParticles() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        for (let i = 0; i < this.particles.length; i++) {
+            const p = this.particles[i];
+
+            // Move
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Bounce
+            if (p.x < 0 || p.x > this.width) p.vx *= -1;
+            if (p.y < 0 || p.y > this.height) p.vy *= -1;
+
+            // Mouse interaction
+            if (this.mousePromise) {
+                const dx = this.mousePromise.x - p.x;
+                const dy = this.mousePromise.y - p.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < this.options.mouseDistance) {
+                    const forceDirectionX = dx / distance;
+                    const forceDirectionY = dy / distance;
+                    const force = (this.options.mouseDistance - distance) / this.options.mouseDistance;
+                    const directionX = forceDirectionX * force * 1.5; // Push away slightly
+                    const directionY = forceDirectionY * force * 1.5;
+
+                    // Subtle attraction or repulsion - let's do repulsion for "tech" feel
+                    // Actually, let's do a gentle attraction to make it feel interactive
+                    // p.vx += directionX * 0.05;
+                    // p.vy += directionY * 0.05;
+
+                    // Let's do a connector to mouse
+                    this.ctx.beginPath();
+                    this.ctx.strokeStyle = `rgba(${this.options.color}, ${0.5 - distance / this.options.mouseDistance})`;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.moveTo(p.x, p.y);
+                    this.ctx.lineTo(this.mousePromise.x, this.mousePromise.y);
+                    this.ctx.stroke();
+                }
+            }
+
+            // Draw Particle
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fillStyle = `rgba(${this.options.color}, 0.5)`;
+            this.ctx.fill();
+
+            // Connect
+            for (let j = i + 1; j < this.particles.length; j++) {
+                const p2 = this.particles[j];
+                const dx = p.x - p2.x;
+                const dy = p.y - p2.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < this.options.connectionDistance) {
+                    this.ctx.beginPath();
+                    this.ctx.strokeStyle = `rgba(${this.options.color}, ${1 - distance / this.options.connectionDistance})`;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.moveTo(p.x, p.y);
+                    this.ctx.lineTo(p2.x, p2.y);
+                    this.ctx.stroke();
+                }
+            }
+        }
+    }
+
+    private animate = () => {
+        this.drawParticles();
+        this.animationId = requestAnimationFrame(this.animate);
+    };
+
+    public destroy() {
+        if (this.animationId) cancelAnimationFrame(this.animationId);
+        window.removeEventListener('resize', this.handleResize);
+        window.removeEventListener('mousemove', this.handleMouseMove);
+    }
+}
+import { authService } from "@/services/auth.service";
+import { ACCESS_TOKEN_KEY } from "./constants";
+import { toast } from "sonner";
+
+import apiConfig from "@/config/apiConfig";
+
+interface FetchOptions extends RequestInit {
+    headers?: Record<string, string>;
+}
+
+export const authenticatedFetch = async (endpoint: string, options: FetchOptions = {}): Promise<Response> => {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+
+    const headers = {
+        "Content-Type": "application/json",
+        ...options.headers,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+
+    const baseUrl = apiConfig.baseUrl;
+    const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}/${endpoint.replace(/^\//, "")}`;
+
+    try {
+        let response = await fetch(url, { ...options, headers });
+
+        if (response.status === 401) {
+            // Attempt refresh
+            const refreshed = await authService.refreshToken();
+            if (refreshed) {
+                // Retry with new token
+                const newToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+                if (newToken) {
+                    headers.Authorization = `Bearer ${newToken}`;
+                    response = await fetch(url, { ...options, headers });
+                }
+            } else {
+                // Refresh failed, authService.refreshToken() typically logs out, but ensure strict return
+                return response;
+            }
+        }
+
+        return response;
+    } catch (error) {
+        toast.error("Connection Error", {
+            description: "Unable to reach the server. Please check your internet connection."
+        });
+        throw error;
+    }
+};
+import {
+    ApolloClient,
+    InMemoryCache,
+    createHttpLink,
+    from,
+} from "@apollo/client";
+import { setContext } from "@apollo/client/link/context";
+import { onError } from "@apollo/client/link/error";
+import { toast } from "sonner";
+
+import apiConfig from "@/config/apiConfig";
+import { authService } from "@/services/auth.service";
+
+/* =========================
+   HTTP LINK
+========================= */
+const httpLink = createHttpLink({
+    uri: apiConfig.graphqlUrl,
+    credentials: "include",
+});
+
+/* =========================
+   AUTH LINK
+========================= */
+const authLink = setContext((_, { headers }) => {
+    const token = authService.getToken();
+
+    return {
+        headers: {
+            ...headers,
+            Authorization: token ? `Bearer ${token}` : "",
+        },
+    };
+});
+
+/* =========================
+   ERROR LINK (TS-SAFE)
+========================= */
+const errorLink = onError(({ graphQLErrors, networkError }) => {
+    let unauthorized = false;
+
+    if (graphQLErrors && graphQLErrors.length > 0) {
+        for (const err of graphQLErrors) {
+            console.error("[GraphQL error]", err.message);
+
+            if (
+                err.message === "Authentication required" ||
+                err.extensions?.code === "UNAUTHENTICATED"
+            ) {
+                unauthorized = true;
+            }
+        }
+    }
+
+    if (networkError) {
+        const statusCode = (networkError as any)?.statusCode;
+        if (statusCode === 401) {
+            unauthorized = true;
+        }
+    }
+
+    if (unauthorized) {
+        toast.error("Session expired", {
+            description: "Please login again.",
+        });
+
+        authService.logout();
+
+        if (window.location.pathname !== "/login") {
+            window.location.href = "/login";
+        }
+    }
+});
+
+/* =========================
+   APOLLO CLIENT
+========================= */
+export const client = new ApolloClient({
+    link: from([errorLink, authLink, httpLink]),
+    cache: new InMemoryCache(),
+    defaultOptions: {
+        watchQuery: {
+            fetchPolicy: "network-only",
+            errorPolicy: "all",
+        },
+        query: {
+            fetchPolicy: "network-only",
+            errorPolicy: "all",
+        },
+        mutate: {
+            errorPolicy: "all",
+        },
+    },
+});
+const ACCESS_TOKEN_KEY = 'access_token';
+
+/**
+ * Retrieves the access token from localStorage.
+ */
+export const getAccessToken = (): string | null => {
+    return localStorage.getItem(ACCESS_TOKEN_KEY);
+};
+
+/**
+ * Saves the access token to localStorage.
+ * @param token The JWT access token.
+ */
+export const setAccessToken = (token: string): void => {
+    localStorage.setItem(ACCESS_TOKEN_KEY, token);
+};
+
+/**
+ * Removes the access token from localStorage.
+ */
+export const removeAccessToken = (): void => {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+};
+
+/**
+ * Checks if the user is authenticated based on the presence of a token.
+ */
+export const isAuthenticated = (): boolean => {
+    return !!getAccessToken();
+};
+
+/**
+ * MOCK: Simulates a successful login by setting a dummy token.
+ */
+export const loginMock = (): void => {
+    setAccessToken('mock-jwt-token-12345');
+    localStorage.setItem('isAuthenticated', 'true'); // Support legacy mock check if any
+};
+
+/**
+ * MOCK: Simulates logout by clearing the token.
+ */
+export const logoutMock = (): void => {
+    removeAccessToken();
+    localStorage.removeItem('isAuthenticated');
+};
+import apiConfig from "@/config/apiConfig";
+
+export const ACCESS_TOKEN_KEY = "access";
+export const REFRESH_TOKEN_KEY = "refresh";
+
+export const AUTH_STATE_KEY = "isAuthenticated";
+export const USER_PROFILE_KEY = "user_profile";
+
+export const AUTH_URL = apiConfig.endpoints.auth.login;
+export const REFRESH_URL = apiConfig.endpoints.auth.refresh;
+export const SIGNUP_URL = apiConfig.endpoints.auth.signup;
+/**
+ * Data Layer / Service Interface
+ * 
+ * This file acts as the single source of truth for data structures and 
+ * provides a unified service interface for the rest of the application.
+ * 
+ * Feature: USE_MOCK flag allows toggling between local mock data and 
+ * future GraphQL/Backend integration.
+ */
+
+import {
+    MOCK_EMAIL_LOGS,
+    MOCK_THREATS,
+    MOCK_THREATS_BY_DAY,
+    MOCK_METRICS
+} from "./mockData";
+
+// --- Types ---
+
+export type EmailLog = {
+    id: string;
+    sender: string;
+    recipient: string;
+    subject: string;
+    body?: string;
+    createdAt: string;
+    folder?: "inbox" | "sent";
+    scan?: {
+        result: "safe" | "malicious";
+        confidence?: number;
+    };
+};
+
+export type Threat = {
+    id: string;
+    subject: string;
+    type: string;
+    from: string;
+};
+
+export type SummaryMetrics = {
+    totalScanned: number;
+    threatsBlocked: number;
+    cleanEmails: number;
+    detectionAccuracy: number;
+};
+
+// --- Configuration ---
+
+/**
+ * Toggle this flag to switch between Mock Mode and Backend Integration.
+ * Driven by VITE_USE_MOCK environment variable.
+ */
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true" || import.meta.env.VITE_USE_MOCK === undefined;
+
+// --- Service Functions ---
+
+/**
+ * Fetch email logs.
+ * Supports filtering in mock mode.
+ */
+export async function getEmails(): Promise<EmailLog[]> {
+    try {
+        if (USE_MOCK) {
+            return [...MOCK_EMAIL_LOGS];
+        }
+        // FUTURE: Implement GraphQL query using Apollo Client
+        return [];
+    } catch (error) {
+        console.error("Error fetching emails:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch latest critical threats.
+ */
+export async function getLatestThreats(): Promise<Threat[]> {
+    try {
+        if (USE_MOCK) {
+            return [...MOCK_THREATS];
+        }
+        return [];
+    } catch (error) {
+        console.error("Error fetching latest threats:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch summary metrics for the dashboard.
+ */
+export async function getMetrics(): Promise<SummaryMetrics> {
+    if (USE_MOCK) {
+        return { ...MOCK_METRICS };
+    }
+
+    // FUTURE: Implement GraphQL query
+    return {
+        totalScanned: 0,
+        threatsBlocked: 0,
+        cleanEmails: 0,
+        detectionAccuracy: 0
+    };
+}
+
+/**
+ * Fetch threat statistics by day for the chart.
+ */
+export async function getThreatsByDay(): Promise<Array<{ date: string; threats: number }>> {
+    if (USE_MOCK) {
+        return [...MOCK_THREATS_BY_DAY];
+    }
+
+    // FUTURE: Implement GraphQL query
+    return [];
+}
+
+// --- Legacy Export (Temporarily kept for compatibility if needed) ---
+// Note: It's better to use the async functions above.
+export const emailLogs = MOCK_EMAIL_LOGS;
+export const latestThreats = MOCK_THREATS;
+export const threatsByDay = MOCK_THREATS_BY_DAY;
+export const summaryMetrics = MOCK_METRICS;import { EmailLog, Threat } from "./data";
+
+export const MOCK_EMAIL_LOGS: EmailLog[] = [
+    { id: "1", sender: "marketing@example.com", recipient: "user@example.com", subject: "Exclusive Offer Just For You!", createdAt: "2025-12-27T10:30:15Z", folder: "inbox", scan: { result: "safe", confidence: 0.998 } },
+    { id: "2", sender: "support@verified-bank.com", recipient: "user@example.com", subject: "Action Required: Your Account is Locked", createdAt: "2025-12-27T10:28:45Z", folder: "inbox", scan: { result: "malicious", confidence: 0.952 } },
+    { id: "3", sender: "hr-department@company.net", recipient: "user@example.com", subject: "Updated Company Policy", createdAt: "2025-12-27T10:25:02Z", folder: "inbox", scan: { result: "safe", confidence: 0.999 } },
+    { id: "4", sender: "random-user@proton.me", recipient: "user@example.com", subject: "FW: Urgent Invoice Payment", createdAt: "2025-12-27T10:22:18Z", folder: "inbox", scan: { result: "malicious", confidence: 0.785 } },
+    { id: "5", sender: "contact@your-cloud-storage.io", recipient: "user@example.com", subject: "Your storage is almost full", createdAt: "2025-12-27T10:19:55Z", folder: "inbox", scan: { result: "safe", confidence: 0.995 } },
+    { id: "6", sender: "winner@lottery-prizes.info", recipient: "user@example.com", subject: "Congratulations! You've Won!", createdAt: "2025-12-27T10:15:33Z", folder: "inbox", scan: { result: "malicious", confidence: 0.989 } },
+    { id: "7", sender: "jane.doe@client-partner.com", recipient: "user@example.com", subject: "Meeting Follow-up", createdAt: "2025-12-27T10:12:10Z", folder: "inbox", scan: { result: "safe", confidence: 1.0 } },
+    { id: "8", sender: "admin@payroll-system.co", recipient: "user@example.com", subject: "Verify Your Payroll Information", createdAt: "2025-12-27T10:09:01Z", folder: "inbox", scan: { result: "malicious", confidence: 0.921 } },
+    { id: "9", sender: "newsletter@tech-today.com", recipient: "user@example.com", subject: "This Week in AI", createdAt: "2025-12-27T10:05:47Z", folder: "inbox", scan: { result: "safe", confidence: 0.997 } },
+    { id: "10", sender: "security-alert@microsoft-online.net", recipient: "user@example.com", subject: "Unusual sign-in activity", createdAt: "2025-12-27T10:02:21Z", folder: "inbox", scan: { result: "malicious", confidence: 0.65 } },
+    { id: "11", sender: "ceo@my-company.com", recipient: "user@example.com", subject: "Urgent: Wire Transfer Request", createdAt: "2025-12-27T09:58:14Z", folder: "inbox", scan: { result: "malicious", confidence: 0.884 } },
+    { id: "12", sender: "no-reply@social-network.com", recipient: "user@example.com", subject: "You have a new friend request", createdAt: "2025-12-27T09:55:00Z", folder: "inbox", scan: { result: "safe", confidence: 0.999 } },
+    { id: "13", sender: "billing@utility-corp.com", recipient: "user@example.com", subject: "Monthly Bill Ready", createdAt: "2025-12-27T09:50:00Z", folder: "inbox", scan: { result: "safe", confidence: 0.991 } },
+    { id: "14", sender: "info@conference-organizer.org", recipient: "user@example.com", subject: "Registration Confirmation", createdAt: "2025-12-27T09:45:00Z", folder: "inbox", scan: { result: "safe", confidence: 0.994 } },
+    { id: "15", sender: "system@internal-it.net", recipient: "user@example.com", subject: "Password Reset Requested", createdAt: "2025-12-27T09:40:00Z", folder: "inbox", scan: { result: "malicious", confidence: 0.452 } },
+    { id: "16", sender: "alerts@crypto-exchange.io", recipient: "user@example.com", subject: "Significant Price Drop", createdAt: "2025-12-27T09:35:00Z", folder: "inbox", scan: { result: "safe", confidence: 0.999 } },
+    { id: "17", sender: "support@delivery-service.com", recipient: "user@example.com", subject: "Your Package is on the Way", createdAt: "2025-12-27T09:30:00Z", folder: "inbox", scan: { result: "safe", confidence: 0.987 } },
+    { id: "18", sender: "rewards@loyalty-program.com", recipient: "user@example.com", subject: "You have 5,000 pending points", createdAt: "2025-12-27T09:25:00Z", folder: "inbox", scan: { result: "malicious", confidence: 0.621 } },
+    { id: "19", sender: "team@project-management-tool.com", recipient: "user@example.com", subject: "New task assigned to you", createdAt: "2025-12-27T09:20:00Z", folder: "inbox", scan: { result: "safe", confidence: 0.998 } },
+    { id: "20", sender: "updates@airline-booking.com", recipient: "user@example.com", subject: "Flight Update: Gate Change", createdAt: "2025-12-27T09:15:00Z", folder: "inbox", scan: { result: "safe", confidence: 1.0 } },
+];
+
+export const MOCK_THREATS: Threat[] = [
+    { id: "threat-1", subject: "Action Required: Your Account is Locked", type: "Phishing", from: "support@verified-bank.com" },
+    { id: "threat-2", subject: "Congratulations! You've Won!", type: "Malware Link", from: "winner@lottery-prizes.info" },
+    { id: "threat-3", subject: "Verify Your Payroll Information", type: "Credential Theft", from: "admin@payroll-system.co" },
+    { id: "threat-4", subject: "Urgent: Wire Transfer Request", type: "Business Email Compromise", from: "ceo@my-company.com" },
+    { id: "threat-5", subject: "Password Reset Requested", type: "Account Takeover Attempt", from: "system@internal-it.net" },
+];
+
+export const MOCK_THREATS_BY_DAY = [
+    { date: "Jan 07", threats: 15 },
+    { date: "Jan 08", threats: 22 },
+    { date: "Jan 09", threats: 18 },
+    { date: "Jan 10", threats: 25 },
+    { date: "Jan 11", threats: 30 },
+    { date: "Jan 12", threats: 28 },
+    { date: "Jan 13", threats: 42 },
+];
+
+export const MOCK_METRICS = {
+    totalScanned: 24512,
+    threatsBlocked: 86,
+    cleanEmails: 24426,
+    detectionAccuracy: 99.1,
+};
+/**
+ * Core TypeScript interfaces for the Intelligent Mail Dashboard.
+ * These types are designed to align with the future GraphQL backend schema.
+ */
+
+export interface Email {
+    id: string;
+    sender: string;
+    recipient: string;
+    subject: string;
+    body: string;
+    folder: string;
+    createdAt: string;
+}
+
+export type ScanResult = "clean" | "malicious" | "suspicious";
+
+export interface ScanLog {
+    id: string;
+    result: ScanResult;
+    confidence: number;
+    createdAt: string;
+    email: {
+        subject: string;
+    };
+}
+
+export interface Metric {
+    label: string;
+    value: string | number;
+    trend?: {
+        value: number;
+        isPositive: boolean;
+    };
+}
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+$ ls src/services
+auth.service.ts
+email.service.ts
+emailService.ts
+scan.service.ts
+
+$ cat src/services/*
+/**
+ * Auth Service
+ * 
+ * Purpose: Manage JWT authentication and session state.
+ */
+
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_STATE_KEY, USER_PROFILE_KEY, AUTH_URL, REFRESH_URL, SIGNUP_URL } from "@/lib/constants";
+import { authenticatedFetch } from "@/lib/api";
+
+let refreshPromise: Promise<boolean> | null = null;
+
+export interface AuthResponse {
+    access: string;
+    refresh?: string;
+    user?: {
+        id: number;
+        username: string;
+        email: string;
+        role: string;
+    };
+}
+
+export interface LoginPayload {
+    username: string;
+    password: string;
+}
+
+export interface SignupPayload {
+    username: string;
+    email: string;
+    password: string;
+}
+
+export interface SignupResult {
+    success: boolean;
+    error?: string | Record<string, string[]>;
+}
+
+export interface LoginResult {
+    success: boolean;
+    error?: string;
+}
+
+export const authService = {
+    /**
+     * Authenticate with the backend.
+     */
+    async login(username: string, password: string): Promise<LoginResult> {
+        try {
+            const payload: LoginPayload = { username, password };
+            const response = await fetch(AUTH_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    return { success: false, error: "Invalid credentials" };
+                }
+                return { success: false, error: "Authentication failed" };
+            }
+
+            const data: AuthResponse = await response.json();
+            if (data.access) {
+                this.setToken(data.access);
+                if (data.refresh) {
+                    this.setRefreshToken(data.refresh);
+                }
+
+                // Fetch user profile immediately after login
+                await this.getProfile();
+
+                localStorage.setItem(AUTH_STATE_KEY, 'true');
+                return { success: true };
+            }
+            return { success: false, error: "Invalid response from server" };
+        } catch (error) {
+            console.error("Login failed:", error);
+            return { success: false, error: "Network error. Is the backend online?" };
+        }
+    },
+
+    /**
+     * Signup a new user.
+     */
+    async signup(username: string, email: string, password: string): Promise<SignupResult> {
+        try {
+            const payload: SignupPayload = { username, email, password };
+            const response = await fetch(SIGNUP_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
+                return { success: true };
+            }
+
+            if (response.status === 400) {
+                const errorData = await response.json();
+                return { success: false, error: errorData };
+            }
+
+            return { success: false, error: "An unexpected error occurred during signup." };
+        } catch (error) {
+            console.error("Signup failed:", error);
+            return { success: false, error: "Connection error. Is the backend running?" };
+        }
+    },
+
+    /**
+     * Fetch user profile details.
+     */
+    async getProfile(): Promise<any> {
+        try {
+            const response = await authenticatedFetch('/users/me/');
+
+            if (response.status === 401) {
+                this.logout();
+                window.location.href = '/login';
+                return null;
+            }
+
+            if (!response.ok) return null;
+
+            const userProfile = await response.json();
+            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(userProfile));
+            return userProfile;
+        } catch (error) {
+            console.error("Failed to fetch profile:", error);
+            return null;
+        }
+    },
+
+    /**
+     * Refresh the access token.
+     */
+    async refreshToken(): Promise<boolean> {
+        if (refreshPromise) {
+            return refreshPromise;
+        }
+
+        refreshPromise = (async () => {
+            try {
+                const refresh = this.getRefreshToken();
+                if (!refresh) return false;
+
+                const response = await fetch(REFRESH_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ refresh }),
+                });
+
+                if (!response.ok) {
+                    this.logout();
+                    return false;
+                }
+
+                const data: { access: string } = await response.json();
+                if (data.access) {
+                    this.setToken(data.access);
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error("Token refresh failed:", error);
+                return false;
+            } finally {
+                refreshPromise = null;
+            }
+        })();
+
+        return refreshPromise;
+    },
+
+    /**
+     * Clear session.
+     */
+    logout() {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_STATE_KEY);
+        localStorage.removeItem(USER_PROFILE_KEY);
+    },
+
+    /**
+     * Get stored token.
+     */
+    getToken(): string | null {
+        return localStorage.getItem(ACCESS_TOKEN_KEY);
+    },
+
+    /**
+     * Set stored token.
+     */
+    setToken(token: string) {
+        localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    },
+
+    /**
+     * Get stored refresh token.
+     */
+    getRefreshToken(): string | null {
+        return localStorage.getItem(REFRESH_TOKEN_KEY);
+    },
+
+    /**
+     * Set stored refresh token.
+     */
+    setRefreshToken(token: string) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    },
+
+    /**
+     * Get stored user profile.
+     */
+    getUserProfile(): any {
+        const profile = localStorage.getItem(USER_PROFILE_KEY);
+        return profile ? JSON.parse(profile) : null;
+    },
+
+    /**
+     * Check if user is authenticated locally.
+     */
+    isAuthenticated(): boolean {
+        return localStorage.getItem(AUTH_STATE_KEY) === 'true' && !!this.getToken();
+    }
+};
+import { client } from "@/lib/apolloClient";
+import { GET_MY_EMAILS, GET_MY_SCAN_LOGS } from "@/graphql/queries";
+import { SEND_EMAIL_MUTATION } from "@/graphql/mutations";
+import {
+    MOCK_EMAIL_LOGS,
+    MOCK_THREATS,
+    MOCK_THREATS_BY_DAY,
+    MOCK_METRICS
+} from "@/lib/mockData";
+
+/* =========================
+   TYPES
+========================= */
+
+export type EmailLog = {
+    id: string;
+    sender: string;
+    recipient: string;
+    subject: string;
+    body?: string;
+    createdAt: string;
+    folder?: "inbox" | "sent";
+    scan?: {
+        result: "safe" | "malicious";
+        confidence?: number;
+    };
+};
+
+export type Threat = {
+    id: string;
+    subject: string;
+    type: string;
+    from: string;
+    datetime?: string;
+};
+
+/* =========================
+   DATA MODE
+========================= */
+
+export const DATA_MODE = import.meta.env.VITE_DATA_MODE || "mock";
+const USE_MOCK = DATA_MODE === "mock";
+
+/* =========================
+   SERVICE
+========================= */
+
+export const emailService = {
+    /**
+     * 📩 Fetch emails (GraphQL)
+     */
+    async getEmails(folder: string = "inbox"): Promise<EmailLog[]> {
+        if (USE_MOCK) return [...MOCK_EMAIL_LOGS];
+
+        try {
+            const result = await client.query<{ myEmails: EmailLog[] }>({
+                query: GET_MY_EMAILS,
+                variables: {
+                    folder,
+                    limit: 50,
+                    offset: 0
+                },
+                fetchPolicy: "network-only"
+            });
+
+            return result.data.myEmails || [];
+        } catch (error) {
+            console.error("Failed to fetch emails via GraphQL:", error);
+            return [];
+        }
+    },
+
+    /**
+     * 📄 Paginated logs (frontend-side)
+     */
+    async getPaginatedLogs(
+        page: number,
+        itemsPerPage: number,
+        filters?: any
+    ): Promise<{ data: EmailLog[]; total: number }> {
+        const allLogs = await this.getEmails(filters?.folder || "inbox");
+        let filtered = allLogs;
+
+        if (filters?.searchTerm) {
+            const term = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(
+                (l) =>
+                    l.subject.toLowerCase().includes(term) ||
+                    l.sender.toLowerCase().includes(term)
+            );
+        }
+
+        if (filters?.statusFilter?.length > 0) {
+            filtered = filtered.filter((l) =>
+                filters.statusFilter.includes(l.scan?.result || "")
+            );
+        }
+
+        const start = (page - 1) * itemsPerPage;
+        return {
+            data: filtered.slice(start, start + itemsPerPage),
+            total: filtered.length
+        };
+    },
+
+    /**
+     * 🚨 Latest threats
+     */
+    async getLatestThreats(): Promise<Threat[]> {
+        if (USE_MOCK) return [...MOCK_THREATS];
+
+        try {
+            const result = await client.query<{ myScanLogs: any[] }>({
+                query: GET_MY_SCAN_LOGS,
+                variables: { limit: 10 },
+                fetchPolicy: "network-only"
+            });
+
+            const logs = result.data.myScanLogs || [];
+            return logs
+                .filter((l: any) => l.result === "malicious")
+                .map((l: any) => ({
+                    id: l.id,
+                    subject: l.email?.subject || "No Subject",
+                    type: "Phishing", // Backend doesn't provide specific type, defaulting
+                    from: "Unknown",   // Backend ScanLog doesn't have sender, would need email fetch
+                    datetime: l.createdAt
+                }));
+        } catch (error) {
+            console.error("Failed to fetch latest threats:", error);
+            return [];
+        }
+    },
+
+    /**
+     * 📊 Threat trends (Last 7 days)
+     */
+    async getThreatTrends(): Promise<any[]> {
+        if (USE_MOCK) return [...MOCK_THREATS_BY_DAY];
+
+        try {
+            const result = await client.query<{ myScanLogs: any[] }>({
+                query: GET_MY_SCAN_LOGS,
+                variables: { limit: 100 },
+                fetchPolicy: "network-only"
+            });
+
+            const logs = result.data.myScanLogs || [];
+            const trends: Record<string, number> = {};
+
+            logs.forEach((l: any) => {
+                const date = new Date(l.createdAt).toLocaleDateString();
+                if (l.result === "malicious") {
+                    trends[date] = (trends[date] || 0) + 1;
+                } else if (!trends[date]) {
+                    trends[date] = 0;
+                }
+            });
+
+            return Object.entries(trends).map(([date, count]) => ({
+                date,
+                threats: count
+            })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        } catch (error) {
+            console.error("Failed to fetch threat trends:", error);
+            return [];
+        }
+    },
+
+    /**
+     * 📈 Summary metrics
+     */
+    async getMetrics(): Promise<any> {
+        if (USE_MOCK) return { ...MOCK_METRICS };
+
+        try {
+            const result = await client.query<{ myScanLogs: any[] }>({
+                query: GET_MY_SCAN_LOGS,
+                variables: { limit: 500 },
+                fetchPolicy: "network-only"
+            });
+
+            const logs = result.data.myScanLogs || [];
+            const totalScanned = logs.length;
+            const threatsBlocked = logs.filter((l: any) => l.result === "malicious").length;
+            const cleanEmails = totalScanned - threatsBlocked;
+            const detectionAccuracy = totalScanned > 0 ? 98 : 0; // Mock accuracy as backend doesn't provide real accuracy metric
+
+            return {
+                totalScanned,
+                threatsBlocked,
+                cleanEmails,
+                detectionAccuracy
+            };
+        } catch (error) {
+            console.error("Failed to fetch metrics:", error);
+            return {
+                totalScanned: 0,
+                threatsBlocked: 0,
+                cleanEmails: 0,
+                detectionAccuracy: 0
+            };
+        }
+    },
+
+    /**
+     * ✉️ SEND EMAIL (GraphQL Mutation)
+     */
+    async sendEmail(
+        recipient: string,
+        subject: string,
+        body: string
+    ): Promise<{ success: boolean; message: string }> {
+        if (USE_MOCK) {
+            return { success: true, message: "Mock email sent" };
+        }
+
+        try {
+            const result = await client.mutate<{ sendEmail: { email: any } }>({
+                mutation: SEND_EMAIL_MUTATION,
+                variables: {
+                    to: recipient,
+                    subject,
+                    body
+                }
+            });
+
+            if (result.data?.sendEmail?.email) {
+                return {
+                    success: true,
+                    message: "Email sent successfully"
+                };
+            }
+
+            return {
+                success: false,
+                message: "Failed to send email"
+            };
+        } catch (error: any) {
+            console.error("GraphQL sendEmail error:", error);
+            return {
+                success: false,
+                message: error.message || "Unable to send email via GraphQL"
+            };
+        }
+    }
+};
+/**
+ * Email Service
+ * 
+ * Purpose: Abstract data access layer for email-related operations.
+ * This service acts as a proxy for the data layer in src/lib/data.ts,
+ * allowing UI components to remain agnostic about whether data comes
+ * from mocks or a real GraphQL backend.
+ */
+
+import {
+    getEmails,
+    getLatestThreats as getLatestThreatsFromData,
+    getThreatsByDay as getThreatsByDayFromData,
+    getMetrics as getMetricsFromData,
+    EmailLog,
+    Threat
+} from "@/lib/data";
+
+// Simulated delay to mimic API call (can be removed when using real API)
+const simulateDelay = (ms: number = 300) => new Promise(resolve => setTimeout(resolve, ms));
+
+export interface EmailFilters {
+    searchTerm?: string;
+    statusFilter?: string[];
+}
+
+export interface PaginationParams {
+    page: number;
+    itemsPerPage: number;
+}
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+    page: number;
+    totalPages: number;
+}
+
+/**
+ * Fetch all email logs with optional filtering.
+ */
+export async function getEmailLogs(filters?: EmailFilters): Promise<EmailLog[]> {
+    // We already have a simulateDelay in some lib/data functions potentially, 
+    // but we'll keep it here as an extra layer of abstraction for now.
+    await simulateDelay();
+
+    let logs = await getEmails();
+
+    if (filters?.searchTerm) {
+        const searchLower = filters.searchTerm.toLowerCase();
+        logs = logs.filter(
+            (log) =>
+                log.from.toLowerCase().includes(searchLower) ||
+                log.subject.toLowerCase().includes(searchLower)
+        );
+    }
+
+    if (filters?.statusFilter && filters.statusFilter.length > 0) {
+        logs = logs.filter((log) => filters.statusFilter!.includes(log.status));
+    }
+
+    return logs;
+}
+
+/**
+ * Fetch paginated email logs.
+ */
+export async function getPaginatedEmailLogs(
+    filters?: EmailFilters,
+    pagination?: PaginationParams
+): Promise<PaginatedResponse<EmailLog>> {
+    const allLogs = await getEmailLogs(filters);
+
+    const page = pagination?.page || 1;
+    const itemsPerPage = pagination?.itemsPerPage || 10;
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+
+    return {
+        data: allLogs.slice(startIndex, endIndex),
+        total: allLogs.length,
+        page,
+        totalPages: Math.ceil(allLogs.length / itemsPerPage),
+    };
+}
+
+/**
+ * Fetch a single email log by ID.
+ */
+export async function getEmailLogById(id: string): Promise<EmailLog | null> {
+    await simulateDelay();
+    const logs = await getEmails();
+    return logs.find((log) => log.id === id) || null;
+}
+
+/**
+ * Fetch latest critical threats.
+ */
+export async function getLatestThreats(): Promise<Threat[]> {
+    await simulateDelay();
+    return await getLatestThreatsFromData();
+}
+
+/**
+ * Fetch threat statistics by day for the chart.
+ */
+export async function getThreatsByDay(): Promise<Array<{ date: string; threats: number }>> {
+    await simulateDelay();
+    return await getThreatsByDayFromData();
+}
+
+/**
+ * Fetch summary metrics.
+ */
+export async function getSummaryMetrics(): Promise<any> {
+    await simulateDelay();
+    return await getMetricsFromData();
+}/**
+ * Scan Service
+ * 
+ * Purpose: Manage email scanning operations and mapping.
+ */
+
+export interface ScanResult {
+    status: "clean" | "suspicious" | "malicious";
+    confidence: number;
+    trace_id: string;
+    used: "real" | "mock";
+}
+
+export const scanService = {
+    /**
+     * Trigger a scan (Placeholder for future implementation).
+     */
+    async scanEmail(content: string): Promise<ScanResult | null> {
+        try {
+            // Implementation would go here
+            return null;
+        } catch (error) {
+            console.error("Scan failed:", error);
+            return null;
+        }
+    }
+};
+
+$ ls src/graphql
+mutations.ts
+queries.ts
+
+$ cat src/graphql/*
+import { gql } from "@apollo/client";
+
+/**
+ * =========================
+ * ✉️ SEND EMAIL
+ * =========================
+ * Backend source:
+ * mutation SendEmail(to, subject, body)
+ */
+export const SEND_EMAIL_MUTATION = gql`
+  mutation SendEmail($to: String!, $subject: String!, $body: String!) {
+    sendEmail(to: $to, subject: $subject, body: $body) {
+      email {
+        id
+        sender
+        recipient
+        subject
+        body
+        folder
+        createdAt
+        scan {
+          result
+          confidence
+        }
+      }
+    }
+  }
+`;
+import { gql } from "@apollo/client";
+
+/**
+ * =========================
+ * 📩 FETCH USER EMAILS
+ * =========================
+ * Backend source:
+ * query MyEmails(folder, limit, offset)
+ */
+export const GET_MY_EMAILS = gql`
+  query MyEmails($folder: String, $limit: Int, $offset: Int) {
+    myEmails(folder: $folder, limit: $limit, offset: $offset) {
+      id
+      sender
+      recipient
+      subject
+      body
+      folder
+      createdAt
+      scan {
+        result
+        confidence
+      }
+    }
+  }
+`;
+
+/**
+ * =========================
+ * 🧪 FETCH SCAN LOGS
+ * =========================
+ * Backend source:
+ * query MyScanLogs
+ */
+export const GET_MY_SCAN_LOGS = gql`
+  query MyScanLogs($limit: Int, $offset: Int) {
+    myScanLogs(limit: $limit, offset: $offset) {
+      id
+      result
+      confidence
+      createdAt
+      email {
+        subject
+      }
+    }
+  }
+`;
+
+/**
+ * =========================
+ * ❌ REMOVED ON PURPOSE
+ * =========================
+ * Sending emails is REST-only:
+ * POST /emails/send/
+ *
+ * GraphQL mutation removed to avoid 400 errors
+ */
+// export const SEND_EMAIL_MUTATION = ...
+
+==============================
+END OF DUMP

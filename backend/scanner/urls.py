@@ -1,0 +1,2 @@
+# scanner/urls.py
+urlpatterns = []

@@ -3,3 +3,15 @@ djangorestframework
 djangorestframework-simplejwt
 drf-yasg
 psycopg2-binary
+requests
+pytest
+pytest-django
+pytest-cov
+requests-mock
+graphene-django
+django-filter
+channels 
+channels-redis 
+django-cors-headers
+django-graphql-jwt
+python-json-logger
