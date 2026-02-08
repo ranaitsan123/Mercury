@@ -1,20 +1,26 @@
-# Base Python image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Set working directory
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Copy only requirements first (for caching)
-COPY backend/requirements.txt .
+# System deps
+RUN apt-get update \
+    && apt-get install -y netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Python deps
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the whole backend folder
-COPY backend/ .
+# Copy backend source
+COPY . .
 
-# Expose the port your app will run on
+# Entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8000
 
-# Run migrations and start the server
-CMD ["sh", "-c", "python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:8000"]
+CMD ["/entrypoint.sh"]
