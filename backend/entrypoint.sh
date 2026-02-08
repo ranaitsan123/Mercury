@@ -3,8 +3,7 @@ set -e
 
 echo "⏳ Waiting for PostgreSQL to be ready..."
 
-# Railway-safe DB wait
-while ! nc -z "$DB_HOST" "$DB_PORT"; do
+while ! nc -z "$PGHOST" "$PGPORT"; do
   sleep 1
 done
 
